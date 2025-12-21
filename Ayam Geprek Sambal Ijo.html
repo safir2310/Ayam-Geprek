@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayam Geprek Sambal Ijo - Menarik Perhatian!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, hsl(0, 98%, 51%), #f72509);
+            color: #333;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        header {
+            position: relative;
+            text-align: center;
+            padding: 50px 20px;
+            background: linear-gradient(135deg, #f12805, #ee430f);
+            color: #333;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://via.placeholder.com/1200x800?text=Ayam+Geprek+Sambal+Ijo+Nasi+Hero') no-repeat center center;
+            background-size: cover;
+            opacity: 0.4;
+            z-index: -1;
+            animation: parallax 10s ease-in-out infinite alternate;
+        }
+        @keyframes parallax {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-30px); }
+        }
+        header img {
+            width: 80%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 15px;
+            animation: fadeIn 3s ease-in-out;
+            box-shadow: 0 15px 40px rgba(245, 46, 46, 0.5);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .typing {
+            font-size: 1.5em;
+            font-weight: bold;
+            border-right: 3px solid #333;
+            animation: typing 4s steps(50, end), blink 1s infinite;
+        }
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+        @keyframes blink {
+            0%, 50% { border-color: transparent; }
+            51%, 100% { border-color: #333; }
+        }
+        .cta-button {
+            background: linear-gradient(135deg, #f1571f, #fd4335);
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+            margin-top: 20px;
+            transition: transform 0.3s;
+        }
+        .cta-button:hover {
+            transform: scale(1.1);
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(196, 61, 12, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255,69,0,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,69,0,0); }
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: rgb(196, 37, 37);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: #333;
+        }
+        h1, h2, h3 {
+            background: linear-gradient(135deg, #1f1f12, #0b1316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+        .promo {
+            text-align: center;
+            background: linear-gradient(135deg, hwb(17 0% 0%), #FF69B4);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            animation: bounce 3s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .menu-item {
+            padding: 15px;
+            background: linear-gradient(135deg, #FFFFCC, #E0F6FF);
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+            color: #333;
+        }
+        .menu-item:hover {
+            transform: translateY(-15px) rotate(3deg);
+            box-shadow: 0 15px 40px rgba(236, 5, 5, 0.6);
+        }
+        .menu-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+        .gallery {
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+        .gallery img {
+            width: 300px;
+            height: 200px;
+            object-fit: cover;
+            margin-right: 10px;
+            border-radius: 10px;
+            animation: slide 12s linear infinite;
+        }
+        @keyframes slide {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        .testimonial {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #FFFFDD, #E6F7FF);
+            border-left: 5px solid #FFFF00;
+            border-radius: 10px;
+            color: #333;
+            font-style: italic;
+        }
+        .location iframe {
+            width: 100%;
+            height: 300px;
+            border: 0;
+            border-radius: 10px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            margin-top: 10px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #0d0e0c, #ADD8E6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        input, textarea, button {
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus {
+            border-color: #f12828;
+            box-shadow: 0 0 8px rgba(255, 94, 0, 0.5);
+        }
+        button {
+            background: linear-gradient(135deg, #db4910, #a51b70);
+            color: #333;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #CCCC00, #87CEEB);
+        }
+        footer {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #FFFF00, #87CEEB);
+            color: #333;
+            margin-top: 20px;
+        }
+        nav {
+            background: linear-gradient(135deg, #cf2d04, #db46a2);
+            color: #333;
+            padding: 10px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        nav a {
+            color: #333;
+            margin: 0 15px;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        nav a:hover {
+            color: #05c7a7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="Gambar/IMG_20200609_170055.JPG" alt="Ayam Geprek Sambal Ijo dengan Nasi">
+        <h1>AYAM GEPREK SAMBAL IJO! Extra Pedas </h1>
+        <p class="typing">Rasakan ayam geprek sambal ijo dengan nasi rempah yang bikin lapar seketika!</p>
+        <button class="cta-button" onclick="alert('Pesanan Anda akan diproses! Hubungi kami di 0852 6081 2758')">Pesan Sekarang – Diskon 20%!</button>
+    </header>
+
+    <nav>
+        <a href="#tentang">Tentang</a>
+        <a href="#promo">Promo</a>
+        <a href="#menu">Menu</a>
+        <a href="#galeri">Galeri</a>
+        <a href="#testimoni">Testimoni</a>
+        <a href="#lokasi">Lokasi</a>
+        <a href="#kontak">Kontak</a>
+    </nav>
+
+    <div class="container">
+        <section id="tentang">
+            <h2>Tentang Kami – Kenapa Harus Ayam Geprek Sambal Ijo?</h2>
+            <p>Rumah makan yang inovatif menyajikan ayam geprek dengan sambal ijo khas yang pedas dan gurih, lengkap dengan nasi putih rempah. Bahan segar, cita rasa autentik – bikin Anda ketagihan! Jangan lewatkan sensasi pedas yang bikin selera makan meningkat!</p>
+        </section>
+
+        <section id="promo">
+            <div class="promo">
+                <h2>Promo Spesial Hari Ini!</h2>
+                <p>Cooming Soon, See you next Time!</p>
+                <button class="cta-button" onclick="alert('Promo diklaim! Hubungi kami untuk detail')">Klaim Promo</button>
+            </div>
+        </section>
+
+        <section id="menu">
+            <h2>Menu Unggulan – Pilih Favoritmu!</h2>
+            <div class="menu-grid">
+                <div class="menu-item">
+                    <img src="gambar/IMG_20200609_170055.JPG" alt="Ayam Geprek Original dengan Nasi">
+                    <h3>Ayam Geprek Sambal Ijo Original + Nasi</h3>
+                    <p>Ayam renyah digeprek sambal ijo, nasi rempah. Harga: Rp 13.000</p>
+                </div>
+                <div class="menu-item">
+                    <img src="Gambar/IMG_20200609_170055.JPG" alt="Ayam Geprek Extra Pedas dengan Nasi">
+                    <h3>Ayam Geprek Sambal Ijo Extra Pedas + Nasi Rempah</h3>
+                    <p>Pedas level tinggi, lengkap nasi. Harga: Rp 13.000</p>
+                </div>
+                <div class="menu-item">
+                    <img src="Gambar/IMG_20200609_170055.JPG" alt="Combo dengan Nasi">
+                    <h3>Combo Ayam Geprek + Nasi + Es Teh</h3>
+                    <p>Paket lengkap, nasi dan minum. Harga: Rp 20.000</p>
+                </div>
+                <div class="menu-item">
+                    <img src="Gambar/IMG_20200609_170055.JPG" alt="Ayam Geprek Jumbo dengan Nasi">
+                    <h3>Ayam Geprek Sambal Ijo Jumbo + Nasi</h3>
+                    <p>Portion besar, nasi tambahan. Harga: Rp 18.000</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="galeri">
+            <h2>Galeri Foto – Lihat Kelezatan Kami!</h2>
+            <div class="gallery">
+                <img src="Gambar/IMG_20200609_170055.JPG" alt="Ayam Geprek dengan Nasi 1">
+                <img src="https://via.placeholder.com/300x200?text=Sambal+Ijo+Nasi+2" alt="Sambal Ijo dengan Nasi 2">
+                <img src="https://via.placeholder.com/300x200?text=Combo+Nasi+3" alt="Combo dengan Nasi 3">
+                <img src="https://via.placeholder.com/300x200?text=Jumbo+Nasi+4" alt="Jumbo dengan Nasi 4">
+                <img src="https://via.placeholder.com/300x200?text=Restoran+Interior+5" alt="Interior Restoran 5">
+                <img src="https://via.placeholder.com/300x200?text=Pelanggan+Makan+Nasi+6" alt="Pelanggan Makan Nasi 6">
+            </div>
+        </section>
+
+        <section id="testimoni">
+            <h2>Testimoni Pelanggan – Mereka Bilang Apa?</h2>
+            <div class="testimonial">
+                <p>"Ayam gepreknya bikin nagih! Sambal ijonya pedas pas, nasi hangatnya bikin kenyang. Recommended!" - Budi, Jakarta</p>
+            </div>
+            <div class="testimonial">
+                <p>"Extra pedas cocok buat saya yang suka tantangan. Website ini bikin saya langsung pesan!" - Siti, Bandung</p>
+            </div>
+            <div class="testimonial">
+                <p>"Combo dengan nasi dan es teh hemat banget. Rasanya autentik, saya jadi langganan!" - Andi, Surabaya</p>
+            </div>
+        </section>
+
+        <section id="lokasi">
+            <h2>Lokasi Kami – Kunjungi Sekarang!</h2>
+            <p>Alamat: Jl. Banda Aceh - Medan,Simpang Camat No Hp. 0852 6081 2758, Kota Pedas. Mudah dijangkau dan parkir luas!</p>
+            <div class="location">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.521260322283!2d106.816666!3d-6.200000!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwMTInMDAu" allowfullscreen="" loading="lazy"></iframe>
+            </div>
+        </section>
+
+        <section id="kontak">
+            <h2>Hubungi Kami – Pesan Sekarang!</h2>
+            <p>Telepon: 0852 6081 2758 | Email: musafir2310@gmail.com | WhatsApp: <a href="https://wa.me/6285260812758">Klik di sini</a></p>
+            <form action="mailto:musafir2310@gmail.com" method="post" enctype="text/plain">
+                <label for="nama">Nama Lengkap:</label>
+                <input type="text" id="nama" name="nama" required>
+
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+
+                <label for="telepon">Nomor Telepon:</label>
+                <input type="tel" id="telepon" name="telepon" required>
+
+                <label for="pesan">Detail Pesanan (misal: menu dengan nasi):</label>
+                <textarea id="pesan" name="pesan" rows="4" required></textarea>
