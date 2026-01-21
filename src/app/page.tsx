@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChefHat, ShoppingCart, User, LogOut, Facebook, Instagram, Phone, Menu } from 'lucide-react';
+import { ChefHat, ShoppingCart, User, LogOut, Facebook, Instagram, Phone, Menu, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAppStore, CartItem } from '@/store/app-store';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -148,18 +154,28 @@ export default function Home() {
                   </Button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <Link href="/auth/login">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="border-white text-white hover:bg-white hover:text-orange-600">
                       <User className="h-5 w-5 mr-2" />
+                      <ChevronDown className="h-4 w-4" />
                     </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button className="bg-white text-orange-600 hover:bg-orange-50">
-                      <User className="h-5 w-5 mr-2" />
-                    </Button>
-                  </Link>
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href="/auth/login" className="cursor-pointer">
+                        <User className="h-4 w-4 mr-2" />
+                        Login
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/auth/register" className="cursor-pointer">
+                        <User className="h-4 w-4 mr-2" />
+                        Register
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </nav>
           </div>
