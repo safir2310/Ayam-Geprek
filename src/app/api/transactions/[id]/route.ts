@@ -15,28 +15,17 @@ export async function PUT(
 
     // Validate status value
     const validStatuses = ['waiting', 'approved', 'processing', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      console.log('[TRANSACTION] Invalid status:', status);
+    if (!status || !validStatuses.includes(status)) {
+      console.log('[TRANSACTION] Invalid or missing status:', status);
       return NextResponse.json(
-        { error: `Status tidak valid. Status yang valid: ${validStatuses.join(', ')}` },
+        { error: 'Status tidak valid. Status yang valid: waiting, approved, processing, completed, cancelled' },
         { status: 400 }
       );
     }
 
-    if (!status) {
-      console.log('[TRANSACTION] Status is missing in request body');
-      return NextResponse.json(
-        { error: 'Status diperlukan' },
-        { status: 400 }
-      );
-    }
-
-    // Get the transaction first
+    // Get transaction first
     const existingTransaction = await db.transaction.findUnique({
       where: { id: params.id },
-    }).catch((dbError) => {
-      console.error('[TRANSACTION] Database error finding transaction:', dbError);
-      throw new Error('Gagal mengambil data transaksi dari database');
     });
 
     console.log('[TRANSACTION] Existing transaction found:', !!existingTransaction);
@@ -62,9 +51,6 @@ export async function PUT(
           completedAt: new Date(),
         }),
       },
-    }).catch((dbError) => {
-      console.error('[TRANSACTION] Database error updating transaction:', dbError);
-      throw new Error('Gagal mengupdate status transaksi di database');
     });
 
     console.log('[TRANSACTION] Transaction updated successfully');
@@ -91,8 +77,8 @@ export async function PUT(
         }
       } catch (coinError) {
         console.error('[TRANSACTION] Error adding coins:', coinError);
-        // Continue even if coin addition fails
-        // Transaction update was successful, just log the coin error
+        // Continue even if coin addition fails - transaction update was successful
+        // Just log the error, don't fail the whole request
       }
     }
 
