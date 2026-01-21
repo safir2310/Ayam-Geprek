@@ -578,3 +578,35 @@ Stage Summary:
 - Deployment in progress
 
 ---
+
+---
+
+Task ID: ui-update-3
+Agent: Main Agent
+Task: Fix admin verification validation logic
+
+Work Log:
+- User reported "Kode verifikasi salah" error when registering admin
+- Analyzed backend validation logic in src/app/api/auth/register/route.ts
+- Found issue: backend was removing hyphens from dateOfBirth before comparison
+- Old logic: dateOfBirth.replace(/-/g, '') was stripping hyphens
+- This caused mismatch when user input had hyphens (e.g., "01-01-2000")
+- Rewrote entire validation logic:
+  - Normalize both verificationCode and dateOfBirth to remove non-digits
+  - Both must be 6 digits
+  - Direct comparison: cleanVerificationCode === cleanDob
+  - If match, proceed with registration
+  - If mismatch, return \"Kode verifikasi salah\"
+- Committed changes: "Fix admin verification code validation"
+- Pushed to GitHub successfully
+- Triggered Vercel deployment
+- Deployment status: READY
+- New deployment URL: ayamgepreksambalijo-lga4cihhp-safir2310s-projects.vercel.app
+
+Stage Summary:
+- Admin verification validation fixed
+- Users can now register as admin by entering their date of birth as verification code
+- Logic properly compares 6-digit code from DOB
+- Fix deployed to production
+
+---
