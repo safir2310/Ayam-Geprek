@@ -75,6 +75,7 @@ export default function AdminDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [coinProducts, setCoinProducts] = useState<CoinExchangeProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingTransactionId, setUpdatingTransactionId] = useState<string | null>(null);
 
   // Product form state
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -305,22 +306,44 @@ export default function AdminDashboard() {
   };
 
   const handleUpdateTransactionStatus = async (id: string, status: string) => {
+    // Prevent multiple simultaneous updates for the same transaction
+    if (updatingTransactionId === id) {
+      console.log('[ADMIN] Transaction already updating, skipping:', id);
+      return;
+    }
+
+    // Prevent updating if status hasn't changed
+    const transaction = transactions.find(t => t.id === id);
+    if (transaction && transaction.status === status) {
+      console.log('[ADMIN] Status unchanged, skipping update:', id, status);
+      return;
+    }
+
     try {
+      console.log('[ADMIN] Updating transaction:', id, 'to status:', status);
+      setUpdatingTransactionId(id);
+
       const res = await fetch(`/api/transactions/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
+        console.log('[ADMIN] Transaction updated successfully:', data);
         alert('Status berhasil diubah!');
-        fetchData();
+        await fetchData();
       } else {
-        alert('Gagal mengubah status');
+        console.error('[ADMIN] Failed to update transaction:', data);
+        alert(data.error || 'Gagal mengubah status');
       }
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('[ADMIN] Error updating status:', error);
       alert('Terjadi kesalahan. Silakan coba lagi.');
+    } finally {
+      setUpdatingTransactionId(null);
     }
   };
 
@@ -633,6 +656,7 @@ export default function AdminDashboard() {
                   getStatusColor={getStatusColor}
                   getStatusText={getStatusText}
                   onUpdateStatus={handleUpdateTransactionStatus}
+                  updatingTransactionId={updatingTransactionId}
                 />
               ))}
             </div>
@@ -863,11 +887,13 @@ function TransactionCard({
   getStatusColor,
   getStatusText,
   onUpdateStatus,
+  updatingTransactionId,
 }: {
   transaction: Transaction;
   getStatusColor: (status: string) => string;
   getStatusText: (status: string) => string;
   onUpdateStatus: (id: string, status: string) => void;
+  updatingTransactionId: string | null;
 }) {
   return (
     <Card>
@@ -918,31 +944,39 @@ function TransactionCard({
               Koin diperoleh: +{transaction.coinsEarned}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.open(`/api/transactions/${transaction.id}/receipt`, '_blank')}
               className="flex items-center gap-2"
+              disabled={updatingTransactionId === transaction.id}
             >
               <FileText className="h-4 w-4" />
               Lihat Struk
             </Button>
-            <Select
-              value={transaction.status}
-              onValueChange={(value) => onUpdateStatus(transaction.id, value)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="waiting">Menunggu</SelectItem>
-                <SelectItem value="approved">Disetujui</SelectItem>
-                <SelectItem value="processing">Diproses</SelectItem>
-                <SelectItem value="completed">Selesai</SelectItem>
-                <SelectItem value="cancelled">Batal</SelectItem>
-              </SelectContent>
-            </Select>
+            {updatingTransactionId === transaction.id ? (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="h-4 w-4 border-2 border-gray-400 border-t-orange-600 rounded-full animate-spin" />
+                <span>Menyimpan...</span>
+              </div>
+            ) : (
+              <Select
+                value={transaction.status}
+                onValueChange={(value) => onUpdateStatus(transaction.id, value)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="waiting">Menunggu</SelectItem>
+                  <SelectItem value="approved">Disetujui</SelectItem>
+                  <SelectItem value="processing">Diproses</SelectItem>
+                  <SelectItem value="completed">Selesai</SelectItem>
+                  <SelectItem value="cancelled">Batal</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
       </CardContent>

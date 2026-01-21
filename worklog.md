@@ -740,3 +740,37 @@ Stage Summary:
 - All changes deployed and live in production
 - Users can now properly view and print receipts
 - Admin can verify transaction details through receipt view
+
+---
+
+Task ID: struk-fix-2
+Agent: Main Agent
+Task: Perbaiki error struk yang menampilkan "Terjadi kesalahan server"
+
+Work Log:
+- User reported error when clicking "Lihat Struk" button: {"error":"Terjadi kesalahan server"}
+- Added detailed logging throughout receipt generation route:
+  - Log transaction ID at start
+  - Log after database query
+  - Log transaction data summary
+  - Log each item being processed
+  - Log when PDF generated successfully
+  - Log detailed error info (name, message, stack) if error occurs
+- Added null checks for all transaction fields (receiptId, orderDate, userName, userIdNumber, userPhoneNumber)
+- Added null checks for all item fields (productName, quantity, price, discount, subtotal)
+- Added null checks for totalAmount and coinsEarned
+- Used default values: 'N/A', 'Unknown Product', 0 for numeric fields
+- Added condition to only show coins if transaction.completed and coinsEarned exists
+- Committed changes: "perbaiki error struk dengan null checks dan logging"
+- Pushed code to GitHub repository
+- Triggered production deployment to Vercel
+- Deployment successful at: https://ayamgepreksambalijo.vercel.app
+- Created documentation: PERBAIKI_ERROR_STRUK.md
+
+Stage Summary:
+- Receipt generation now has comprehensive null checking
+- Detailed logging added for debugging if errors still occur
+- Graceful degradation implemented (shows 'N/A' if data missing)
+- Prevents crashes due to null/undefined values
+- All changes deployed and live in production
+- If error persists, Vercel logs will show detailed error information
