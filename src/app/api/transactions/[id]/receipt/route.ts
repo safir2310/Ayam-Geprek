@@ -7,6 +7,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('[RECEIPT] Generating receipt for transaction ID:', params.id);
+
     // Get transaction with items and user
     const transaction = await db.transaction.findUnique({
       where: { id: params.id },
@@ -16,12 +18,20 @@ export async function GET(
       },
     });
 
+    console.log('[RECEIPT] Transaction found:', !!transaction);
+
     if (!transaction) {
       return NextResponse.json(
         { error: 'Transaksi tidak ditemukan' },
         { status: 404 }
       );
     }
+
+    console.log('[RECEIPT] Transaction data:', {
+      receiptId: transaction.receiptId,
+      totalAmount: transaction.totalAmount,
+      itemCount: transaction.items.length,
+    });
 
     // Create PDF
     const doc = new jsPDF();
@@ -49,20 +59,20 @@ export async function GET(
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`ID Struk       : ${transaction.receiptId}`, 20, 65);
+    doc.text(`ID Struk       : ${transaction.receiptId || 'N/A'}`, 20, 65);
     doc.text(
-      `Tanggal        : ${new Date(transaction.orderDate).toLocaleDateString('id-ID', {
+      `Tanggal        : ${transaction.orderDate ? new Date(transaction.orderDate).toLocaleDateString('id-ID', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric',
-      })}`,
+      }) : 'N/A'}`,
       20,
       72
     );
-    doc.text(`Nama           : ${transaction.userName}`, 20, 79);
-    doc.text(`ID User        : ${transaction.userIdNumber}`, 20, 86);
-    doc.text(`No HP          : ${transaction.userPhoneNumber}`, 20, 93);
+    doc.text(`Nama           : ${transaction.userName || 'N/A'}`, 20, 79);
+    doc.text(`ID User        : ${transaction.userIdNumber || 'N/A'}`, 20, 86);
+    doc.text(`No HP          : ${transaction.userPhoneNumber || 'N/A'}`, 20, 93);
 
     // Separator
     doc.setDrawColor(200, 200, 200);
@@ -92,37 +102,49 @@ export async function GET(
     doc.setTextColor(0, 0, 0);
 
     transaction.items.forEach((item, index) => {
+      console.log('[RECEIPT] Processing item:', {
+        productName: item.productName,
+        quantity: item.quantity,
+        price: item.price,
+        discount: item.discount,
+        subtotal: item.subtotal,
+      });
+
       // Calculate price per unit after discount
-      const finalPrice = item.discount > 0
-        ? item.price * (1 - item.discount / 100)
-        : item.price;
+      const itemPrice = item.price || 0;
+      const itemDiscount = item.discount || 0;
+      const itemSubtotal = item.subtotal || 0;
+
+      const finalPrice = itemDiscount > 0
+        ? itemPrice * (1 - itemDiscount / 100)
+        : itemPrice;
 
       // Product name and quantity
-      doc.text(`${item.quantity}x ${item.productName}`, 20, y);
+      doc.text(`${item.quantity}x ${item.productName || 'Unknown Product'}`, 20, y);
 
       // Price and discount info
-      if (item.discount > 0) {
+      if (itemDiscount > 0) {
         // Show original price (strikethrough effect with gray color)
         doc.setTextColor(150, 150, 150);
         doc.setFontSize(8);
-        doc.text(`Rp ${item.price.toLocaleString('id-ID')}`, 120, y, { align: 'right' });
+        doc.text(`Rp ${itemPrice.toLocaleString('id-ID')}`, 120, y, { align: 'right' });
         // Show discount percentage
         doc.setTextColor(200, 50, 50);
-        doc.text(`-${item.discount}%`, 140, y, { align: 'right' });
+        doc.text(`-${itemDiscount}%`, 140, y, { align: 'right' });
         // Show discounted price
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
         doc.text(`Rp ${Math.round(finalPrice).toLocaleString('id-ID')}`, 170, y, { align: 'right' });
       } else {
         // No discount, just show normal price
-        doc.text(`Rp ${item.price.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+        doc.text(`Rp ${itemPrice.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
       }
 
       // Subtotal
       y += 7;
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Subtotal: Rp ${item.subtotal.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+      doc.text(`Subtotal: Rp ${itemSubtotal.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
       y += 10;
     });
 
@@ -136,7 +158,7 @@ export async function GET(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text('TOTAL HARGA', 20, y);
-    doc.text(`Rp ${transaction.totalAmount.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+    doc.text(`Rp ${(transaction.totalAmount || 0).toLocaleString('id-ID')}`, 170, y, { align: 'right' });
     y += 10;
 
     // Status
@@ -148,12 +170,12 @@ export async function GET(
       processing: 'Sedang Diproses',
       completed: 'Selesai',
       cancelled: 'Dibatalkan',
-    }[transaction.status] || transaction.status;
+    }[transaction.status] || transaction.status || 'Unknown';
 
     doc.text(`Status: ${statusText}`, 20, y);
 
     // Coins earned
-    if (transaction.status === 'completed') {
+    if (transaction.status === 'completed' && transaction.coinsEarned) {
       y += 7;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 150, 0);
@@ -172,6 +194,8 @@ export async function GET(
     // Convert to buffer
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
 
+    console.log('[RECEIPT] PDF generated successfully, size:', pdfBuffer.length);
+
     // Return PDF
     return new NextResponse(pdfBuffer, {
       headers: {
@@ -180,7 +204,13 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    console.error('[RECEIPT] Error generating PDF:', error);
+    console.error('[RECEIPT] Error details:', JSON.stringify(error, null, 2));
+    if (error instanceof Error) {
+      console.error('[RECEIPT] Error name:', error.name);
+      console.error('[RECEIPT] Error message:', error.message);
+      console.error('[RECEIPT] Error stack:', error.stack);
+    }
     return NextResponse.json(
       { error: 'Terjadi kesalahan server' },
       { status: 500 }

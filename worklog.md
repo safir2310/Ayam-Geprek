@@ -702,3 +702,41 @@ Stage Summary:
 - Clear user guidance with examples provided in registration form
 - All changes deployed and live in production
 - Users can now successfully register as admin using their date of birth
+
+---
+
+Task ID: struk-fix-1
+Agent: Main Agent
+Task: Perbaiki tampilan dan fungsi struk (User & Admin Dashboard)
+
+Work Log:
+- User Dashboard: Removed non-functional "Cetak Struk" button that was calling window.print() incorrectly
+- User Dashboard: Changed "Unduh Struk" to "Lihat Struk" with FileText icon (more intuitive)
+- User Dashboard: Removed unused Download and Printer icon imports
+- Admin Dashboard: Added "Lihat Struk" button to transaction cards
+- Admin Dashboard: Imported FileText icon from lucide-react
+- API receipt route: Added column headers to PDF (Nama Produk, Harga, Subtotal)
+- API receipt route: Improved price display for items with discount:
+  - Original price shown in gray (strikethrough effect)
+  - Discount percentage shown in red
+  - Discounted price shown in black
+- API receipt route: Added subtotal per item on separate line (gray color)
+- API receipt route: Used existing subtotal field from TransactionItem table
+- API receipt route: Improved layout and spacing for better readability
+- Committed changes: "perbaiki tampilan dan fungsi struk"
+- Pushed code to GitHub repository
+- Triggered production deployment to Vercel
+- Deployment successful at: https://ayamgepreksambalijo.vercel.app
+- Created comprehensive documentation: PERBAIKI_STRUK.md
+
+Stage Summary:
+- User Dashboard now has single working "Lihat Struk" button
+- Admin Dashboard now has access to view transaction receipts
+- PDF receipt format significantly improved with:
+  - Clear column headers
+  - Discount information displayed prominently
+  - Subtotal per item shown
+  - Better color coding for information hierarchy
+- All changes deployed and live in production
+- Users can now properly view and print receipts
+- Admin can verify transaction details through receipt view
