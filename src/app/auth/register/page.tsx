@@ -320,12 +320,17 @@ export default function RegisterPage() {
                     <Input
                       id="admin-verification"
                       type="text"
-                      placeholder="kode verifikasi dari admin"
+                      placeholder="DDMMYY (contoh: 010100)"
                       value={adminData.verificationCode}
                       onChange={(e) => setAdminData({ ...adminData, verificationCode: e.target.value })}
                       required
                       maxLength={6}
                     />
+                    <p className="text-xs text-gray-500">
+                      Masukkan 6 digit dari tanggal lahir Anda dalam format DDMMYY
+                      <br />
+                      Contoh: Jika lahir 01-01-2000, masukkan <strong>010100</strong>
+                    </p>
                   </div>
 
                   <AnimatePresence>

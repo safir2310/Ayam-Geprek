@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChefHat, ShoppingCart, User, LogOut, Facebook, Instagram, Phone, Menu, ChevronDown } from 'lucide-react';
+import { ChefHat, ShoppingCart, User, LogOut, LogIn, UserPlus, Facebook, Instagram, Phone, Menu, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -164,13 +164,13 @@ export default function Home() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
                       <Link href="/auth/login" className="cursor-pointer">
-                        <User className="h-4 w-4 mr-2" />
+                        <LogIn className="h-4 w-4 mr-2" />
                         Login
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/auth/register" className="cursor-pointer">
-                        <User className="h-4 w-4 mr-2" />
+                        <UserPlus className="h-4 w-4 mr-2" />
                         Register
                       </Link>
                     </DropdownMenuItem>

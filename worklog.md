@@ -643,3 +643,30 @@ Stage Summary:
 - Users can now register as admin with their date of birth
 
 ---
+
+---
+
+Task ID: ui-update-2
+Agent: Main Agent
+Task: Gabungkan tombol Login dan Register di header menjadi dropdown menu
+
+Work Log:
+- Added ChevronDown icon import from lucide-react
+- Added DropdownMenu components from shadcn/ui (DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger)
+- Replaced two separate Login and Register buttons with single DropdownMenu
+- Created DropdownMenuTrigger with User icon and ChevronDown arrow
+- Added two DropdownMenuItem options: Login (links to /auth/login) and Register (links to /auth/register)
+- Applied consistent styling with border-white and text-white theme
+- Set dropdown align="end" for proper positioning on all screen sizes
+- Committed changes with message: "gabungkan tombol login dan register di header menjadi dropdown menu"
+- Pushed code to GitHub repository
+- Triggered production deployment to Vercel
+- Deployment successful at: https://ayamgepreksambalijo.vercel.app
+- Created documentation: GABUNGKAN_LOGIN_REGISTER.md
+
+Stage Summary:
+- Successfully combined Login and Register buttons into single dropdown menu
+- Header now more compact and cleaner with fewer buttons
+- Better responsive design for mobile devices
+- User-friendly dropdown with clear options for Login and Register
+- All changes deployed and live in production

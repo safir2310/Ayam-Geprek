@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Verification code must be 6 digits in DDMMYYYY format
+      // Verification code must be 6 digits in DDMMYY format
       console.log('[REGISTER] Admin: Date of birth provided:', dateOfBirth);
       console.log('[REGISTER] Admin: Verification code provided:', verificationCode);
 
@@ -83,18 +83,35 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Now parse date of birth (format can be DD-MM-YYYY or any variation)
-      // Normalize date of birth by removing hyphens and special characters
-      const cleanDob = dateOfBirth.replace(/[^0-9]/g, '');
+      // Parse date of birth from HTML date picker format (YYYY-MM-DD)
+      // and convert to DDMMYY format for comparison
+      const dateParts = dateOfBirth.split('-');
+      if (dateParts.length !== 3) {
+        console.log('[REGISTER] Admin: Invalid date format');
+        return NextResponse.json(
+          { error: 'Format tanggal lahir tidak valid' },
+          { status: 400 }
+        );
+      }
 
-      console.log('[REGISTER] Admin: Clean DOB:', cleanDob);
-      console.log('[REGISTER] Admin: Clean verification code:', cleanVerificationCode);
+      const year = dateParts[0]; // YYYY
+      const month = dateParts[1]; // MM
+      const day = dateParts[2]; // DD
 
-      // Compare dates directly (both are just 6 digits)
-      if (cleanVerificationCode !== cleanDob) {
+      // Extract last 2 digits of year
+      const yearShort = year.slice(-2);
+
+      // Format as DDMMYY
+      const formattedDob = `${day}${month}${yearShort}`;
+
+      console.log('[REGISTER] Admin: Formatted DOB for comparison:', formattedDob);
+      console.log('[REGISTER] Admin: Expected verification code:', cleanVerificationCode);
+
+      // Compare formatted date with verification code
+      if (cleanVerificationCode !== formattedDob) {
         console.log('[REGISTER] Admin: Verification code mismatch');
-        console.log('[REGISTER] Verification code:', cleanVerificationCode);
-        console.log('[REGISTER] Date of birth:', cleanDob);
+        console.log('[REGISTER] Expected:', formattedDob);
+        console.log('[REGISTER] Received:', cleanVerificationCode);
         return NextResponse.json(
           { error: 'Kode verifikasi salah' },
           { status: 400 }
