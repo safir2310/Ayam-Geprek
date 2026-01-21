@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For admin registration, verify the verification code (date of birth)
+    // For admin registration, verify verification code (date of birth)
     if (type === 'admin') {
       if (!dateOfBirth || !verificationCode) {
         console.log('[REGISTER] Admin: Missing date of birth or verification code');
@@ -68,17 +68,40 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Verification code should match the date of birth (DDMMYYYY format)
-      const formattedDob = dateOfBirth.replace(/-/g, '');
-      console.log('[REGISTER] Admin: Verifying code', { formattedDob, verificationCode });
+      // Verification code must be 6 digits in DDMMYYYY format
+      console.log('[REGISTER] Admin: Date of birth provided:', dateOfBirth);
+      console.log('[REGISTER] Admin: Verification code provided:', verificationCode);
 
-      if (verificationCode !== formattedDob) {
+      // First, normalize the verification code (remove all non-digits)
+      const cleanVerificationCode = verificationCode.replace(/[^0-9]/g, '');
+
+      if (cleanVerificationCode.length !== 6) {
+        console.log('[REGISTER] Admin: Verification code must be 6 digits');
+        return NextResponse.json(
+          { error: 'Kode verifikasi harus 6 digit (DDMMYY)' },
+          { status: 400 }
+        );
+      }
+
+      // Now parse date of birth (format can be DD-MM-YYYY or any variation)
+      // Normalize date of birth by removing hyphens and special characters
+      const cleanDob = dateOfBirth.replace(/[^0-9]/g, '');
+
+      console.log('[REGISTER] Admin: Clean DOB:', cleanDob);
+      console.log('[REGISTER] Admin: Clean verification code:', cleanVerificationCode);
+
+      // Compare dates directly (both are just 6 digits)
+      if (cleanVerificationCode !== cleanDob) {
         console.log('[REGISTER] Admin: Verification code mismatch');
+        console.log('[REGISTER] Verification code:', cleanVerificationCode);
+        console.log('[REGISTER] Date of birth:', cleanDob);
         return NextResponse.json(
           { error: 'Kode verifikasi salah' },
           { status: 400 }
         );
       }
+
+      console.log('[REGISTER] Admin: Verification code match');
     }
 
     // Hash password
@@ -128,7 +151,6 @@ export async function POST(request: NextRequest) {
 
     // Provide more detailed error message
     let errorMessage = 'Terjadi kesalahan server';
-
     if (error instanceof Error) {
       errorMessage = error.message;
       console.error('[REGISTER] Error name:', error.name);
