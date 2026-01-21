@@ -73,19 +73,57 @@ export async function GET(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.text('Item Pesanan', 20, y);
-    y += 10;
+    y += 8;
+
+    // Item header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Nama Produk', 20, y);
+    doc.text('Harga', 120, y, { align: 'right' });
+    doc.text('Subtotal', 170, y, { align: 'right' });
+    y += 5;
+    doc.setDrawColor(220, 220, 220);
+    doc.line(20, y, 190, y);
+    y += 8;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
 
     transaction.items.forEach((item, index) => {
-      const finalPrice = item.price * (1 - item.discount / 100);
-      const subtotal = finalPrice * item.quantity;
+      // Calculate price per unit after discount
+      const finalPrice = item.discount > 0
+        ? item.price * (1 - item.discount / 100)
+        : item.price;
 
+      // Product name and quantity
       doc.text(`${item.quantity}x ${item.productName}`, 20, y);
-      doc.text(`Rp ${finalPrice.toLocaleString('id-ID')}`, 120, y);
-      doc.text(`Rp ${Math.round(subtotal).toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+
+      // Price and discount info
+      if (item.discount > 0) {
+        // Show original price (strikethrough effect with gray color)
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text(`Rp ${item.price.toLocaleString('id-ID')}`, 120, y, { align: 'right' });
+        // Show discount percentage
+        doc.setTextColor(200, 50, 50);
+        doc.text(`-${item.discount}%`, 140, y, { align: 'right' });
+        // Show discounted price
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.text(`Rp ${Math.round(finalPrice).toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+      } else {
+        // No discount, just show normal price
+        doc.text(`Rp ${item.price.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+      }
+
+      // Subtotal
       y += 7;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Subtotal: Rp ${item.subtotal.toLocaleString('id-ID')}`, 170, y, { align: 'right' });
+      y += 10;
     });
 
     // Separator

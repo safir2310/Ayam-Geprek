@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChefHat, ShoppingCart, User, LogOut, Coins, FileText, Phone, MapPin, Edit, Download, Printer } from 'lucide-react';
+import { ChefHat, ShoppingCart, User, LogOut, Coins, FileText, Phone, MapPin, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -611,20 +611,8 @@ function TransactionsList({
                       onClick={() => window.open(`/api/transactions/${transaction.id}/receipt`, '_blank')}
                       className="flex items-center gap-2"
                     >
-                      <Download className="h-4 w-4" />
-                      Unduh Struk
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        window.open(`/api/transactions/${transaction.id}/receipt`, '_blank');
-                        setTimeout(() => window.print(), 500);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Cetak Struk
+                      <FileText className="h-4 w-4" />
+                      Lihat Struk
                     </Button>
                     <Button
                       variant="outline"

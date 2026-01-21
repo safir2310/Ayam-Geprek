@@ -670,3 +670,35 @@ Stage Summary:
 - Better responsive design for mobile devices
 - User-friendly dropdown with clear options for Login and Register
 - All changes deployed and live in production
+
+---
+
+Task ID: ui-update-3
+Agent: Main Agent
+Task: Perbaiki ikon login/register di dropdown dan validasi kode verifikasi admin
+
+Work Log:
+- Added LogIn and UserPlus icons from lucide-react
+- Updated dropdown menu in header to use LogIn icon for Login and UserPlus icon for Register
+- Identified bug in admin verification validation: HTML date picker returns YYYY-MM-DD format but code comparison expected DDMMYY
+- Fixed admin verification validation in /src/app/api/auth/register/route.ts:
+  - Parse date from YYYY-MM-DD format
+  - Extract year, month, and day parts
+  - Format as DDMMYY for comparison
+  - Added proper validation and error handling
+- Updated admin registration form in /src/app/auth/register/page.tsx:
+  - Changed placeholder to show format example: "DDMMYY (contoh: 010100)"
+  - Added clear explanation text with example below verification code field
+  - Added bold formatting for example code to make it more visible
+- Committed changes: "perbaiki ikon login/register di dropdown dan validasi admin verification"
+- Pushed code to GitHub repository
+- Triggered production deployment to Vercel
+- Deployment successful at: https://ayamgepreksambalijo.vercel.app
+- Created comprehensive documentation: PERBAIKI_LOGIN_REGISTER_ADMIN.md
+
+Stage Summary:
+- Icons now more intuitive: LogIn for login action, UserPlus for register action
+- Admin verification validation fixed and working correctly
+- Clear user guidance with examples provided in registration form
+- All changes deployed and live in production
+- Users can now successfully register as admin using their date of birth

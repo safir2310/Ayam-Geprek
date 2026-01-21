@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChefHat, LogOut, Package, Users, ShoppingCart, Gift, Plus, Edit, Trash2, Check, X, ArrowLeft } from 'lucide-react';
+import { ChefHat, LogOut, Package, Users, ShoppingCart, Gift, Plus, Edit, Trash2, Check, X, ArrowLeft, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -919,6 +919,15 @@ function TransactionCard({
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/api/transactions/${transaction.id}/receipt`, '_blank')}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Lihat Struk
+            </Button>
             <Select
               value={transaction.status}
               onValueChange={(value) => onUpdateStatus(transaction.id, value)}
