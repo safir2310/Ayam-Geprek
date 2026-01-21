@@ -891,3 +891,76 @@ Stage Summary:
 - Coin addition errors isolated so transaction update still succeeds
 - Better debugging with complete error logs
 - All changes deployed and live in production
+
+---
+
+Task ID: receipt-format-1
+Agent: Main Agent
+Task: Buat format struk PDF baru yang lengkap dengan semua informasi yang diminta
+
+Work Log:
+- Redesigned entire receipt PDF format with professional layout
+- Added large centered store name (24px, bold, orange) - "AYAM GEPREK SAMBAL IJO"
+- Added store address section centered below header
+- Added transaction information section with:
+  - Complete date with day, month, year (Indonesian format)
+  - Time with hours and minutes (HH:MM format)
+  - Receipt ID (4-digit)
+- Added customer information section (separated):
+  - Customer name
+  - Phone number
+  - User ID (4-digit)
+- Created product table with 6 columns:
+  - No (sequential number)
+  - Product Name (with quantity prefix, truncated if too long)
+  - Qty (separate column for clarity)
+  - Price (original price, gray color if discount)
+  - Discount (percentage with red color)
+  - Subtotal (price per item)
+- Implemented subtotal per item on separate line (smaller font, gray color)
+- Added grand total section:
+  - Large font (18px)
+  - Orange color to match header
+- Added status with color coding:
+  - Waiting: Yellow/Orange (200, 150, 50)
+  - Approved: Blue (50, 150, 200)
+  - Processing: Yellow/Brown (150, 100, 50)
+  - Completed: Green (0, 150, 50)
+  - Cancelled: Red (200, 50, 50)
+- Added coins earned section (green color, only if completed)
+- Added footer with:
+  - Thank you message
+  - Store name (bold, orange)
+  - Instruction to save receipt
+  - Social media (Instagram, Facebook)
+  - Contact info
+- Added section separator lines with different colors and widths:
+  - Primary separators: Orange, 1px
+  - Secondary separators: Gray, 0.3px
+- Implemented consistent font hierarchy:
+  - Headers: 14-16px, bold
+  - Body text: 10-11px, normal
+  - Small text: 8-9px
+- Committed changes: "buat format struk baru yang lengkap"
+- Pushed code to GitHub repository
+- Triggered production deployment to Vercel
+- Deployment successful at: https://ayamgepreksambalijo.vercel.app
+- Created comprehensive documentation: FORMAT_STRUK_BARU.md
+
+Stage Summary:
+- Receipt format completely redesigned with professional layout
+- All requested information included:
+  ✓ Store name (capital letters, centered)
+  ✓ Date (complete with day, month, year)
+  ✓ Time (hours and minutes)
+  ✓ Receipt ID
+  ✓ Customer name
+  ✓ Phone number
+  ✓ Order products (with detailed table)
+  ✓ Store address
+  ✓ Thank you message
+- Clear section separation with headers and separators
+- Color-coded status for easy identification
+- Discounts clearly shown with original, discount%, and final price
+- Subtotal per item on separate line for clarity
+- All changes deployed and live in production
