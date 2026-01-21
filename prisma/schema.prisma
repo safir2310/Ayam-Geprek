@@ -1,0 +1,121 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Store Profile Model
+model StoreProfile {
+  id          String   @id @default(cuid())
+  name        String
+  slogan      String?
+  address     String
+  phoneNumber String   // 085260812758
+  instagram   String?
+  facebook    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// User Model (4-digit ID)
+model User {
+  id          String   @id @default(cuid())
+  userId      String   @unique // 4-digit ID: 0001, 0002, etc.
+  username    String   @unique
+  password    String
+  email       String   @unique
+  phoneNumber String
+  role        String   // "admin" or "user"
+  dateOfBirth String?  // For admin registration verification
+  address     String?
+  photo       String?  // User photo URL
+  coins       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions    Transaction[]
+  coinExchanges   CoinExchange[]
+}
+
+// Product Model
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Int
+  discount    Int      @default(0)
+  category    String   // "makanan" or "minuman"
+  photo       String?  // Product photo URL
+  isPromotion Boolean  @default(false)
+  isNewest    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactionItems TransactionItem[]
+}
+
+// Transaction Model (4-digit receipt ID)
+model Transaction {
+  id              String   @id @default(cuid())
+  receiptId       String   @unique // 4-digit ID: 0001, 0002, etc.
+  userId          String
+  userIdNumber    String   // User's 4-digit ID
+  userName        String
+  userPhoneNumber String
+  totalAmount     Int
+  coinsEarned     Int      @default(0)
+  status          String   // "waiting", "approved", "processing", "completed", "cancelled"
+  orderDate       DateTime @default(now())
+  completedAt     DateTime?
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   TransactionItem[]
+}
+
+// Transaction Item Model
+model TransactionItem {
+  id            String   @id @default(cuid())
+  transactionId String
+  productId     String
+  productName   String
+  productPhoto  String?
+  quantity      Int
+  price         Int
+  discount      Int      @default(0)
+  subtotal      Int
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Coin Exchange Product Model
+model CoinExchangeProduct {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  coinsNeeded Int
+  photo       String?  // Product photo URL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exchanges CoinExchange[]
+}
+
+// Coin Exchange Model
+model CoinExchange {
+  id          String   @id @default(cuid())
+  userId      String
+  productId   String
+  productName String
+  coinsSpent  Int
+  exchangedAt DateTime @default(now())
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product CoinExchangeProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
