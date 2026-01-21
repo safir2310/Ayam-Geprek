@@ -119,7 +119,6 @@ export default function Home() {
                     <Link href="/admin/dashboard">
                       <Button variant="ghost" className="text-white hover:bg-orange-700">
                         <ChefHat className="h-5 w-5 mr-2" />
-                        Admin
                       </Button>
                     </Link>
                   ) : (
@@ -129,14 +128,13 @@ export default function Home() {
                           <Image
                             src={user.photo}
                             alt={user.username}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
+                            width={28}
+                            height={28}
+                            className="rounded-full mr-2"
                           />
                         ) : (
                           <User className="h-5 w-5 mr-2" />
                         )}
-                        <span className="hidden md:inline">{user.username}</span>
                       </Button>
                     </Link>
                   )}
@@ -153,12 +151,12 @@ export default function Home() {
                 <div className="flex gap-2">
                   <Link href="/auth/login">
                     <Button variant="outline" className="border-white text-white hover:bg-white hover:text-orange-600">
-                      Login
+                      <User className="h-5 w-5 mr-2" />
                     </Button>
                   </Link>
-                  <Link href="/auth/register" className="hidden md:block">
+                  <Link href="/auth/register">
                     <Button className="bg-white text-orange-600 hover:bg-orange-50">
-                      Register
+                      <User className="h-5 w-5 mr-2" />
                     </Button>
                   </Link>
                 </div>
@@ -490,22 +488,6 @@ function Footer() {
                 <span>Facebook</span>
               </a>
             </div>
-          </div>
-
-          {/* Quick Links */}
-          <div>
-            <h3 className="font-bold text-lg mb-4">Tautan Cepat</h3>
-            <ul className="space-y-2 text-orange-100">
-              <li>
-                <a href="/" className="hover:text-white transition-colors">Beranda</a>
-              </li>
-              <li>
-                <a href="/auth/login" className="hover:text-white transition-colors">Login</a>
-              </li>
-              <li>
-                <a href="/auth/register" className="hover:text-white transition-colors">Register</a>
-              </li>
-            </ul>
           </div>
         </div>
 

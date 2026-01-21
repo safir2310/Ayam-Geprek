@@ -315,16 +315,15 @@ export default function RegisterPage() {
                   <div className="space-y-2">
                     <Label htmlFor="admin-verification" className="flex items-center gap-2">
                       <Check className="h-4 w-4" />
-                      Kode Verifikasi
                     </Label>
                     <Input
                       id="admin-verification"
                       type="text"
-                      placeholder="DDMMYYYY"
+                      placeholder="kode verifikasi dari admin"
                       value={adminData.verificationCode}
                       onChange={(e) => setAdminData({ ...adminData, verificationCode: e.target.value })}
                       required
-                      maxLength={8}
+                      maxLength={6}
                     />
                   </div>
 
