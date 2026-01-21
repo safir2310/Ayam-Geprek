@@ -315,6 +315,7 @@ export default function RegisterPage() {
                   <div className="space-y-2">
                     <Label htmlFor="admin-verification" className="flex items-center gap-2">
                       <Check className="h-4 w-4" />
+                      Kode verifikasi
                     </Label>
                     <Input
                       id="admin-verification"
