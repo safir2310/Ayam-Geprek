@@ -452,3 +452,76 @@ enum QRISPaymentGateway {
   XENDIT
   TRIPAY
 }
+
+// Dynamic Development System
+// Dynamic Tabs - Custom tabs for admin panel
+model DynamicTab {
+  id        String   @id @default(cuid())
+  name      String
+  label     String
+  icon      String?  // Icon name from lucide-react
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pages     DynamicPage[]
+
+  @@index([isActive])
+  @@index([order])
+}
+
+// Dynamic Pages - Pages within tabs
+model DynamicPage {
+  id        String   @id @default(cuid())
+  tabId     String
+  name      String
+  title     String
+  description String?
+  order     Int      @default(0)
+  layout    String   @default("grid") // grid, list, card, table
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tab       DynamicTab @relation(fields: [tabId], references: [id], onDelete: Cascade)
+  features  DynamicFeature[]
+
+  @@index([tabId])
+  @@index([isActive])
+  @@index([order])
+}
+
+// Dynamic Features - Components/widgets within pages
+model DynamicFeature {
+  id          String   @id @default(cuid())
+  pageId      String
+  name        String
+  title       String
+  type        FeatureType @default(CARD)
+  content     String   // JSON string for feature configuration
+  order       Int      @default(0)
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  page        DynamicPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+  @@index([type])
+  @@index([isVisible])
+  @@index([order])
+}
+
+enum FeatureType {
+  CARD
+  CHART
+  TABLE
+  LIST
+  STAT
+  FORM
+  BUTTON
+  TEXT
+  IMAGE
+  DIVIDER
+}

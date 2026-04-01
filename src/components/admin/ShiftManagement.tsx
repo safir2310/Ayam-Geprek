@@ -18,6 +18,11 @@ import {
   Eye,
   X,
   CreditCard,
+  Plus,
+  UserPlus,
+  Phone,
+  Mail,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,86 +73,25 @@ interface Shift {
   closedAt?: string
 }
 
-// Mock Data - Cashiers
-const CASHIERS = [
-  { id: 'CSH-001', name: 'Andi Pratama' },
-  { id: 'CSH-002', name: 'Siti Aminah' },
-  { id: 'CSH-003', name: 'Budi Santoso' },
-]
-
-// Mock Data - Shifts
-const MOCK_SHIFTS: Shift[] = [
-  {
-    id: 'SHF-001',
-    cashierId: 'CSH-001',
-    cashierName: 'Andi Pratama',
-    openingBalance: 500000,
-    totalSales: 3250000,
-    cashSales: 2800000,
-    nonCashSales: 450000,
-    systemBalance: 3300000,
-    status: 'OPEN',
-    openedAt: '2024-03-15T08:00:00',
-  },
-  {
-    id: 'SHF-002',
-    cashierId: 'CSH-002',
-    cashierName: 'Siti Aminah',
-    openingBalance: 500000,
-    closingBalance: 2800000,
-    totalSales: 2300000,
-    cashSales: 1950000,
-    nonCashSales: 350000,
-    systemBalance: 2450000,
-    physicalBalance: 2450000,
-    difference: 0,
-    status: 'CLOSED',
-    openedAt: '2024-03-14T08:00:00',
-    closedAt: '2024-03-14T16:00:00',
-  },
-  {
-    id: 'SHF-003',
-    cashierId: 'CSH-003',
-    cashierName: 'Budi Santoso',
-    openingBalance: 500000,
-    closingBalance: 2750000,
-    totalSales: 2250000,
-    cashSales: 1900000,
-    nonCashSales: 350000,
-    systemBalance: 2400000,
-    physicalBalance: 2425000,
-    difference: 25000,
-    status: 'CLOSED',
-    openedAt: '2024-03-14T16:00:00',
-    closedAt: '2024-03-15T00:00:00',
-  },
-  {
-    id: 'SHF-004',
-    cashierId: 'CSH-001',
-    cashierName: 'Andi Pratama',
-    openingBalance: 500000,
-    closingBalance: 2100000,
-    totalSales: 1600000,
-    cashSales: 1400000,
-    nonCashSales: 200000,
-    systemBalance: 1900000,
-    physicalBalance: 1875000,
-    difference: -25000,
-    status: 'CLOSED',
-    openedAt: '2024-03-14T00:00:00',
-    closedAt: '2024-03-14T08:00:00',
-  },
-]
-
 export default function ShiftManagement() {
-  const [shifts, setShifts] = useState<Shift[]>(MOCK_SHIFTS)
+  const [shifts, setShifts] = useState<Shift[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFilter, setDateFilter] = useState<string>('all')
   const [cashierFilter, setCashierFilter] = useState<string>('all')
   const [closeShiftModalOpen, setCloseShiftModalOpen] = useState(false)
   const [viewShiftModalOpen, setViewShiftModalOpen] = useState(false)
+  const [registerCashierModalOpen, setRegisterCashierModalOpen] = useState(false)
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null)
   const [physicalBalance, setPhysicalBalance] = useState('')
+  const [cashiers, setCashiers] = useState<any[]>([])
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [newCashier, setNewCashier] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  })
 
   // Simulate real-time updates for open shifts
   useEffect(() => {
@@ -176,6 +120,12 @@ export default function ShiftManagement() {
     }, 5000)
 
     return () => clearInterval(interval)
+  }, [])
+
+  // Load cashiers on mount
+  useEffect(() => {
+    loadCashiers()
+    loadShifts()
   }, [])
 
   const formatPrice = (price: number) => {
@@ -298,6 +248,158 @@ export default function ShiftManagement() {
     })
   }
 
+  const loadCashiers = async () => {
+    try {
+      const response = await fetch('/api/cashiers')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setCashiers(data.data)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cashiers:', error)
+    }
+  }
+
+  const loadShifts = async () => {
+    try {
+      const response = await fetch('/api/shifts')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setShifts(data.data)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading shifts:', error)
+    }
+  }
+
+  const handleRegisterCashier = async () => {
+    // Validation
+    if (!newCashier.name.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Nama kasir wajib diisi',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!newCashier.email.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Email wajib diisi',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!newCashier.phone.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Nomor telepon wajib diisi',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!newCashier.password.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Password wajib diisi',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (newCashier.password.length < 6) {
+      toast({
+        title: 'Error',
+        description: 'Password minimal 6 karakter',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (newCashier.password !== newCashier.confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'Konfirmasi password tidak cocok',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsRegistering(true)
+    try {
+      const response = await fetch('/api/cashiers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newCashier.name.trim(),
+          email: newCashier.email.trim(),
+          phone: newCashier.phone.trim(),
+          password: newCashier.password,
+          role: 'CASHIER',
+        }),
+      })
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          toast({
+            title: 'Error',
+            description: data.error || 'Gagal mendaftarkan kasir',
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: 'Error',
+            description: `Server error: ${response.status}`,
+            variant: 'destructive',
+          })
+        }
+        return
+      }
+
+      const data = await response.json()
+      if (data.success) {
+        toast({
+          title: 'Berhasil',
+          description: `Kasir ${newCashier.name} berhasil didaftarkan`,
+        })
+        setNewCashier({
+          name: '',
+          email: '',
+          phone: '',
+          password: '',
+          confirmPassword: '',
+        })
+        setRegisterCashierModalOpen(false)
+        loadCashiers()
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'Gagal mendaftarkan kasir',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal terhubung ke server',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsRegistering(false)
+    }
+  }
+
   const calculateStats = () => {
     const closedShifts = getClosedShifts()
     const totalSales = closedShifts.reduce((sum, s) => sum + s.totalSales, 0)
@@ -325,6 +427,13 @@ export default function ShiftManagement() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setRegisterCashierModalOpen(true)}
+            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Tambah Kasir
+          </Button>
           <Button
             variant="outline"
             className="border-orange-200 text-orange-600 hover:bg-orange-50"
@@ -527,7 +636,7 @@ export default function ShiftManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Kasir</SelectItem>
-                  {CASHIERS.map((cashier) => (
+                  {cashiers.map((cashier) => (
                     <SelectItem key={cashier.id} value={cashier.id}>
                       {cashier.name}
                     </SelectItem>
@@ -890,6 +999,145 @@ export default function ShiftManagement() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewShiftModalOpen(false)}>
               Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Register Cashier Modal */}
+      <Dialog open={registerCashierModalOpen} onOpenChange={setRegisterCashierModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-orange-600" />
+              Registrasi Kasir Baru
+            </DialogTitle>
+            <DialogDescription>
+              Daftarkan kasir baru untuk dapat membuka shift kasir
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="space-y-2">
+              <Label htmlFor="cashier-name">
+                Nama Kasir <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="cashier-name"
+                  placeholder="Masukkan nama lengkap kasir"
+                  value={newCashier.name}
+                  onChange={(e) => setNewCashier({ ...newCashier, name: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cashier-email">
+                Email <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="cashier-email"
+                  type="email"
+                  placeholder="email@contoh.com"
+                  value={newCashier.email}
+                  onChange={(e) => setNewCashier({ ...newCashier, email: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cashier-phone">
+                Nomor Telepon <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="cashier-phone"
+                  type="tel"
+                  placeholder="08xxxxxxxxxx"
+                  value={newCashier.phone}
+                  onChange={(e) => setNewCashier({ ...newCashier, phone: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cashier-password">
+                Password <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="cashier-password"
+                  type="password"
+                  placeholder="Minimal 6 karakter"
+                  value={newCashier.password}
+                  onChange={(e) => setNewCashier({ ...newCashier, password: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Password minimal 6 karakter</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cashier-confirm-password">
+                Konfirmasi Password <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="cashier-confirm-password"
+                  type="password"
+                  placeholder="Ulangi password"
+                  value={newCashier.confirmPassword}
+                  onChange={(e) => setNewCashier({ ...newCashier, confirmPassword: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Kasir yang didaftarkan akan memiliki peran CASHIER dan dapat membuka shift kasir.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setRegisterCashierModalOpen(false)
+              setNewCashier({
+                name: '',
+                email: '',
+                phone: '',
+                password: '',
+                confirmPassword: '',
+              })
+            }}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleRegisterCashier}
+              disabled={isRegistering}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+            >
+              {isRegistering ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Mendaftarkan...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Daftarkan Kasir
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

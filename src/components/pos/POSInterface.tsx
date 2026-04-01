@@ -23,6 +23,7 @@ import {
   Smartphone,
   Ticket,
   QrCode,
+  Wallet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,6 +43,7 @@ import { usePOSStore, POSItem } from '@/stores/pos-store'
 import { useUIStore } from '@/stores/ui-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { toast } from '@/hooks/use-toast'
+import POSPaymentMethods from './POSPaymentMethods'
 
 // Restaurant Info
 const RESTAURANT_INFO = {
@@ -150,12 +152,14 @@ export default function POSInterface() {
   // State
   const [showPayment, setShowPayment] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'CASH' | 'QRIS' | 'VOUCHER' | 'E_WALLET' | 'CARD'>('CASH')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'CASH' | 'QRIS' | 'VOUCHER' | 'E_WALLET' | 'CARD' | 'BANK_TRANSFER'>('CASH')
   const [qrisQrCode, setQrisQrCode] = useState<string | null>(null)
   const [isLoadingQris, setIsLoadingQris] = useState(false)
   const [ewalletNumber, setEwalletNumber] = useState('')
   const [voucherCode, setVoucherCode] = useState('')
   const [cardNumber, setCardNumber] = useState('')
+  const [bankTransferNumber, setBankTransferNumber] = useState('')
+  const [bankTransferName, setBankTransferName] = useState('')
   const [showShiftDialog, setShowShiftDialog] = useState(false)
   const [openingBalance, setOpeningBalance] = useState('')
   const [showReceipt, setShowReceipt] = useState(false)
@@ -727,6 +731,8 @@ export default function POSInterface() {
       paymentDetails = `Voucher: ${voucherCode}`
     } else if (selectedPaymentMethod === 'CARD' && cardNumber) {
       paymentDetails = `Kartu: ****${cardNumber.slice(-4)}`
+    } else if (selectedPaymentMethod === 'BANK_TRANSFER' && bankTransferName && bankTransferNumber) {
+      paymentDetails = `Transfer: ${bankTransferName} - ${bankTransferNumber}`
     }
 
     if (!currentShift) {
@@ -822,6 +828,8 @@ export default function POSInterface() {
         setEwalletNumber('')
         setVoucherCode('')
         setCardNumber('')
+        setBankTransferNumber('')
+        setBankTransferName('')
         
         await loadProducts()
         
@@ -1280,6 +1288,8 @@ export default function POSInterface() {
           setEwalletNumber('')
           setVoucherCode('')
           setCardNumber('')
+          setBankTransferNumber('')
+          setBankTransferName('')
         }
       }}>
         <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden p-0">
@@ -1421,6 +1431,7 @@ export default function POSInterface() {
                       {selectedPaymentMethod === 'E_WALLET' && 'E-Wallet'}
                       {selectedPaymentMethod === 'VOUCHER' && 'Voucher'}
                       {selectedPaymentMethod === 'CARD' && 'Kartu'}
+                      {selectedPaymentMethod === 'BANK_TRANSFER' && 'Transfer Bank'}
                     </Badge>
                   )}
                 </div>
@@ -1428,76 +1439,12 @@ export default function POSInterface() {
 
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-6">
-                  {/* Payment Methods Grid */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Metode Pembayaran</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {/* Cash */}
-                      <Button
-                        className={`h-24 flex flex-col items-center justify-center gap-2 transition-all ${
-                          selectedPaymentMethod === 'CASH'
-                            ? 'bg-gradient-to-r from-green-500 to-green-600 scale-105 shadow-lg border-2 border-green-700 text-white'
-                            : 'bg-white border-2 border-slate-200 hover:border-green-300 text-slate-700'
-                        }`}
-                        onClick={() => setSelectedPaymentMethod('CASH')}
-                      >
-                        <DollarSign className={`w-8 h-8 ${selectedPaymentMethod === 'CASH' ? 'text-white' : 'text-green-600'}`} />
-                        <span className="text-sm font-semibold">Tunai</span>
-                      </Button>
-
-                      {/* QRIS */}
-                      <Button
-                        className={`h-24 flex flex-col items-center justify-center gap-2 transition-all ${
-                          selectedPaymentMethod === 'QRIS'
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 scale-105 shadow-lg border-2 border-blue-700 text-white'
-                            : 'bg-white border-2 border-slate-200 hover:border-blue-300 text-slate-700'
-                        }`}
-                        onClick={() => setSelectedPaymentMethod('QRIS')}
-                      >
-                        <QrCode className={`w-8 h-8 ${selectedPaymentMethod === 'QRIS' ? 'text-white' : 'text-blue-600'}`} />
-                        <span className="text-sm font-semibold">QRIS</span>
-                      </Button>
-
-                      {/* E-Wallet */}
-                      <Button
-                        className={`h-24 flex flex-col items-center justify-center gap-2 transition-all ${
-                          selectedPaymentMethod === 'E_WALLET'
-                            ? 'bg-gradient-to-r from-purple-500 to-purple-600 scale-105 shadow-lg border-2 border-purple-700 text-white'
-                            : 'bg-white border-2 border-slate-200 hover:border-purple-300 text-slate-700'
-                        }`}
-                        onClick={() => setSelectedPaymentMethod('E_WALLET')}
-                      >
-                        <Smartphone className={`w-8 h-8 ${selectedPaymentMethod === 'E_WALLET' ? 'text-white' : 'text-purple-600'}`} />
-                        <span className="text-sm font-semibold">E-Wallet</span>
-                      </Button>
-
-                      {/* Voucher */}
-                      <Button
-                        className={`h-24 flex flex-col items-center justify-center gap-2 transition-all ${
-                          selectedPaymentMethod === 'VOUCHER'
-                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 scale-105 shadow-lg border-2 border-orange-700 text-white'
-                            : 'bg-white border-2 border-slate-200 hover:border-orange-300 text-slate-700'
-                        }`}
-                        onClick={() => setSelectedPaymentMethod('VOUCHER')}
-                      >
-                        <Ticket className={`w-8 h-8 ${selectedPaymentMethod === 'VOUCHER' ? 'text-white' : 'text-orange-600'}`} />
-                        <span className="text-sm font-semibold">Voucher</span>
-                      </Button>
-
-                      {/* Card */}
-                      <Button
-                        className={`h-24 flex flex-col items-center justify-center gap-2 transition-all ${
-                          selectedPaymentMethod === 'CARD'
-                            ? 'bg-gradient-to-r from-slate-700 to-slate-800 scale-105 shadow-lg border-2 border-slate-900 text-white'
-                            : 'bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700'
-                        }`}
-                        onClick={() => setSelectedPaymentMethod('CARD')}
-                      >
-                        <CreditCard className={`w-8 h-8 ${selectedPaymentMethod === 'CARD' ? 'text-white' : 'text-slate-600'}`} />
-                        <span className="text-sm font-semibold">Kartu</span>
-                      </Button>
-                    </div>
-                  </div>
+                  {/* Payment Methods - Scrollable */}
+                  <POSPaymentMethods
+                    selectedMethod={selectedPaymentMethod}
+                    onMethodSelect={setSelectedPaymentMethod}
+                    totalAmount={getSubtotal() - discountAmount}
+                  />
 
                   <Separator className="bg-slate-200" />
 
@@ -1805,6 +1752,67 @@ export default function POSInterface() {
                         )}
                       </div>
                     )}
+
+                    {/* Bank Transfer Payment */}
+                    {selectedPaymentMethod === 'BANK_TRANSFER' && (
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-slate-700 block">Nama Bank</label>
+                            <Input
+                              value={bankTransferName}
+                              onChange={(e) => setBankTransferName(e.target.value)}
+                              placeholder="Contoh: BCA, Mandiri, BNI"
+                              autoFocus
+                              className="text-lg h-12 border-2 border-slate-300 focus:border-orange-500"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-slate-700 block">Nomor Rekening</label>
+                            <Input
+                              value={bankTransferNumber}
+                              onChange={(e) => setBankTransferNumber(e.target.value)}
+                              placeholder="Contoh: 1234567890"
+                              autoFocus
+                              className="text-lg h-12 border-2 border-slate-300 focus:border-orange-500 font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {bankTransferName && bankTransferNumber && bankTransferNumber.length >= 10 && (
+                          <Card className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-green-100 shadow-lg">
+                            <CardContent className="p-5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center">
+                                    <Wallet className="w-7 h-7 text-white" />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-green-800 text-lg">Transfer Valid</p>
+                                    <p className="text-sm text-green-600">
+                                      {bankTransferName} - {bankTransferNumber}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="text-2xl font-bold text-green-700">
+                                  {formatPrice(getSubtotal() - discountAmount)}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {bankTransferNumber && bankTransferNumber.length > 0 && bankTransferNumber.length < 10 && (
+                          <Card className="border-2 border-yellow-400 bg-gradient-to-br from-yellow-50 to-yellow-100">
+                            <CardContent className="p-4">
+                              <p className="text-sm text-yellow-800 font-medium">
+                                Masukkan nomor rekening yang valid (minimal 10 digit)
+                              </p>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </ScrollArea>
@@ -1830,6 +1838,8 @@ export default function POSInterface() {
                     selectedPaymentMethod === 'VOUCHER' && voucherCode.length < 6
                   ) || (
                     selectedPaymentMethod === 'CARD' && cardNumber.replace(/\s/g, '').length < 16
+                  ) || (
+                    selectedPaymentMethod === 'BANK_TRANSFER' && (!bankTransferName || !bankTransferNumber || bankTransferNumber.length < 10)
                   )}
                 >
                   {isProcessingPayment ? (

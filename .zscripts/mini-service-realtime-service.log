@@ -1,19 +1,50 @@
 [realtime-service] Installing dependencies...
 bun install v1.3.10 (30e609e0)
 
-+ @types/node@20.19.37
 + socket.io@4.8.3
-+ socket.io-client@4.8.3
 
-21 packages installed [208.00ms]
+1 package installed [219.00ms]
 [realtime-service] Running bun run dev...
 $ bun --hot index.ts
-46 |     }
+[2026-04-01T09:17:27.973Z] Realtime Service Started {
+  "port": 3004,46 |     }
 47 |   }
 48 |   let er;
 49 |   if (args.length > 0)
-50 |     er = args[0];
-51 |     throw er;
-                 ^
-error: Failed to start server. Is port 3004 in use?
-      at emitError (node:events:51:13)
+50 |     [2026-04-01T10:36:57.146Z] Connection established {
+  "socketId": "iPXSYQZdwR7tFPOSAAAB",
+  "connectedClients": 1
+}
+[2026-04-01T10:36:57.149Z] Shift status updated {
+  "socketId": "iPXSYQZdwR7tFPOSAAAB",
+  "shiftId": "cmnfwvk110001ntiddl9rs27c",
+  "action": "opened",
+  "userId": "cmne35jqb0002nup6uo4neehg",
+  "userName": "Siti Kasir"
+}
+[2026-04-01T11:58:14.040Z] New order received {
+  "socketId": "iPXSYQZdwR7tFPOSAAAB",
+  "orderId": "cmnfzs3kh0002ntidvlldywme",
+  "total": 24000
+}
+[2026-04-01T17:13:38.877Z] Shift status updated {
+  "socketId": "iPXSYQZdwR7tFPOSAAAB",
+  "shiftId": "cmnfwvk110001ntiddl9rs27c",
+  "action": "closed",
+  "userId": "cmne35jqb0002nup6uo4neehg",
+  "userName": "Siti Kasir"
+}
+[2026-04-01T17:25:18.899Z] New order received {
+  "socketId": "iPXSYQZdwR7tFPOSAAAB",
+  "orderId": "cmngbgq7j000antidaqun2hjc",
+  "total": 5000
+}
+[2026-04-01T18:01:41.897Z] Connection established {
+  "socketId": "MpoSpf9iLn46D9yyAAAD",
+  "connectedClients": 2
+}
+[2026-04-01T18:01:41.899Z] New order received {
+  "socketId": "MpoSpf9iLn46D9yyAAAD",
+  "orderId": "cmngcrilr000hntidd74ozt2h",
+  "total": 30000
+}

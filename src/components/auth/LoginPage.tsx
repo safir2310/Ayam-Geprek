@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Store, Lock, User, ArrowLeft, Eye, EyeOff, Phone, MapPin, Mail, Sparkles } from 'lucide-react'
+import { Store, Lock, User, ArrowLeft, Eye, EyeOff, Phone, MapPin, Mail, Sparkles, KeyRound, UserPlus, LogIn, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -49,45 +49,41 @@ export default function LoginPage() {
         }),
       })
 
-      // Check if response is OK
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type')
-        if (contentType && (contentType.includes('application/json') || contentType.includes('text/json'))) {
-          const data = await response.json()
-          throw new Error(data.error || data.message || 'Login gagal')
-        } else {
-          throw new Error(`Server error: ${response.status}`)
-        }
-      }
-
       const data = await response.json()
 
-      if (!data.success) {
-        throw new Error(data.error || 'Login gagal')
-      }
+      // Check if login was successful
+      if (data.success && data.user) {
+        // Login user
+        login(data.user, data.token)
 
-      // Login user
-      login(data.user, data.token)
+        toast({
+          title: 'Login Berhasil',
+          description: `Selamat datang, ${data.user.name}!`,
+        })
 
-      toast({
-        title: 'Login Berhasil',
-        description: `Selamat datang, ${data.user.name}!`,
-      })
-
-      // Redirect based on role
-      if (data.user.role === 'ADMIN' || data.user.role === 'MANAGER') {
-        setCurrentView('admin')
-      } else if (data.user.role === 'CASHIER') {
-        setCurrentView('pos')
+        // Redirect based on role
+        if (data.user.role === 'ADMIN' || data.user.role === 'MANAGER') {
+          setCurrentView('admin')
+        } else if (data.user.role === 'CASHIER') {
+          setCurrentView('pos')
+        } else {
+          // USER role - go to customer view
+          setCurrentView('customer')
+        }
       } else {
-        // USER role - go to customer view
-        setCurrentView('customer')
+        // Show error message from API
+        toast({
+          title: 'Login Gagal',
+          description: data.error || data.message || 'Email atau password salah',
+          variant: 'destructive',
+        })
       }
     } catch (error: any) {
+      // Only catch network errors here
       console.error('Login error:', error)
       toast({
         title: 'Login Gagal',
-        description: error.message || 'Terjadi kesalahan saat login',
+        description: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
         variant: 'destructive',
       })
     } finally {
@@ -142,60 +138,44 @@ export default function LoginPage() {
         }),
       })
 
-      // Check if response is OK
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type')
-        if (contentType && (contentType.includes('application/json') || contentType.includes('text/json'))) {
-          try {
-            const data = await response.json()
-            const errorMessage = data.error || data.message || 'Registrasi gagal'
-            throw new Error(errorMessage)
-          } catch (parseError) {
-            console.error('Failed to parse error response:', parseError)
-            throw new Error(`Server error: ${response.status}`)
-          }
-        } else {
-          throw new Error(`Server error: ${response.status}`)
-        }
+      const data = await response.json()
+
+      // Check if registration was successful
+      if (data.success && data.user) {
+        // Auto login after registration
+        login(data.user, data.token)
+
+        toast({
+          title: 'Registrasi Berhasil',
+          description: `Selamat bergabung, ${data.user.name}!`,
+        })
+
+        // Redirect to customer view
+        setCurrentView('customer')
+
+        // Reset form
+        setRegisterForm({
+          name: '',
+          email: '',
+          phone: '',
+          address: '',
+          password: '',
+          confirmPassword: '',
+        })
+      } else {
+        // Show error message from API
+        toast({
+          title: 'Registrasi Gagal',
+          description: data.error || data.message || 'Terjadi kesalahan saat mendaftar',
+          variant: 'destructive',
+        })
       }
-
-      let data
-      try {
-        data = await response.json()
-      } catch (parseError) {
-        console.error('Failed to parse success response:', parseError)
-        throw new Error('Gagal memproses respon server')
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || data.message || 'Registrasi gagal')
-      }
-
-      // Auto login after registration
-      login(data.user, data.token)
-
-      toast({
-        title: 'Registrasi Berhasil',
-        description: `Selamat bergabung, ${data.user.name}!`,
-      })
-
-      // Redirect to customer view
-      setCurrentView('customer')
-
-      // Reset form
-      setRegisterForm({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        password: '',
-        confirmPassword: '',
-      })
     } catch (error: any) {
+      // Only catch network errors here
       console.error('Registration error:', error)
       toast({
         title: 'Registrasi Gagal',
-        description: error.message || 'Terjadi kesalahan saat mendaftar',
+        description: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
         variant: 'destructive',
       })
     } finally {
@@ -217,40 +197,80 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    // Simulate password reset (will be replaced with API call)
-    setTimeout(() => {
-      setLoading(false)
-      toast({
-        title: 'Link Reset Terkirim',
-        description: 'Link untuk reset password telah dikirim ke email Anda',
+    try {
+      const response = await fetch('/api/auth/forgot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: forgotForm.email,
+        }),
       })
-      setForgotForm({ email: '' })
-      setShowForgotPassword(false)
-    }, 1000)
+
+      const data = await response.json()
+
+      // Check if response is successful
+      if (data.success) {
+        // Show success message
+        toast({
+          title: 'Link Reset Terkirim',
+          description: data.message || 'Link untuk reset password telah dikirim ke email Anda',
+        })
+        setForgotForm({ email: '' })
+        setShowForgotPassword(false)
+      } else {
+        // Show error message (email not registered or other error)
+        toast({
+          title: 'Gagal',
+          description: data.error || 'Terjadi kesalahan saat memproses permintaan',
+          variant: 'destructive',
+        })
+      }
+    } catch (error: any) {
+      console.error('Forgot password error:', error)
+      // Only show network errors here
+      toast({
+        title: 'Gagal',
+        description: 'Terjadi kesalahan jaringan. Silakan coba lagi.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Brand Header */}
-        <div className="text-center space-y-4 mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-lg">
-            <Store className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-gradient-premium flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated Background Particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-20 w-40 h-40 bg-orange-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }}></div>
+        <div className="absolute top-40 right-32 w-48 h-48 bg-amber-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-32 left-1/3 w-36 h-36 bg-orange-300/10 rounded-full blur-2xl animate-float" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute bottom-20 right-1/4 w-44 h-44 bg-yellow-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }}></div>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Brand Header - Premium */}
+        <div className="text-center space-y-4 mb-8 animate-fade-in-down">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 rounded-3xl shadow-glow-orange animate-float">
+            <Store className="w-10 h-10 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-black text-gradient-orange tracking-tight animate-fade-in-up stagger-1">
               {RESTAURANT_INFO.name}
             </h1>
+            <p className="text-sm text-muted-foreground mt-2 tracking-wide animate-fade-in-up stagger-2">
+              🍗 Pedasnya Bikin Nangih!!
+            </p>
           </div>
         </div>
 
-        {/* Login Card */}
-        <Card className="shadow-xl border-orange-100">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl">
+        {/* Login Card - Premium */}
+        <Card className="glass-premium shadow-premium-lg border-0 animate-fade-in-up stagger-3">
+          <CardHeader className="text-center pb-6 pt-8">
+            <CardTitle className="text-2xl font-bold">
               {showForgotPassword ? 'Lupa Password' : showRegister ? 'Daftar Member' : 'Selamat Datang'}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm">
               {showForgotPassword
                 ? 'Masukkan email untuk reset password'
                 : showRegister
@@ -260,81 +280,90 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             {!showForgotPassword && !showRegister ? (
-              /* Login Form */
+              /* Login Form - Premium */
               <>
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-sm font-semibold">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                       <Input
                         id="email"
                         type="email"
                         placeholder="email@contoh.com"
                         value={loginForm.email}
                         onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                        className="pl-10"
+                        className="pl-12 h-12 border-2 border-orange-200 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 rounded-xl glass transition-all duration-300"
                         required
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
                       <Input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
                         value={loginForm.password}
                         onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                        className="pl-10 pr-10"
+                        className="pl-12 pr-12 h-12 border-2 border-orange-200 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 rounded-xl glass transition-all duration-300"
                         required
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-orange-600 transition-colors"
                       >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPassword(true)
+                          setShowRegister(false)
+                        }}
+                        className="text-xs text-orange-600 hover:text-orange-700 font-semibold transition-colors"
+                      >
+                        Lupa Password?
                       </button>
                     </div>
                   </div>
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                    className="w-full bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white font-semibold py-3.5 rounded-xl shadow-glow-orange hover:shadow-glow-orange hover-lift transition-all duration-300"
                     size="lg"
                     disabled={loading}
                   >
-                    {loading ? 'Memproses...' : 'Login'}
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="w-5 h-5 mr-2" />
+                        Login
+                      </>
+                    )}
                   </Button>
                 </form>
 
-                <div className="mt-4 space-y-3">
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowForgotPassword(true)
-                        setShowRegister(false)
-                      }}
-                      className="text-sm text-orange-600 hover:text-orange-700 font-medium"
-                    >
-                      Lupa Password?
-                    </button>
-                  </div>
-
-                  <div className="relative pt-4">
+                <div className="mt-6 space-y-4">
+                  <div className="relative pt-6">
                     <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-gray-200" />
+                      <span className="w-full border-t border-orange-200"></span>
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-muted-foreground">Atau</span>
+                      <span className="bg-white px-3 text-muted-foreground font-medium">Atau</span>
                     </div>
                   </div>
 
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-2">Belum punya akun?</p>
+                    <p className="text-sm text-muted-foreground mb-3 font-medium">Belum punya akun?</p>
                     <Button
                       type="button"
                       variant="outline"
@@ -342,8 +371,9 @@ export default function LoginPage() {
                         setShowRegister(true)
                         setShowForgotPassword(false)
                       }}
-                      className="w-full border-orange-500 text-orange-600 hover:bg-orange-50"
+                      className="w-full border-2 border-orange-300 text-orange-600 hover:border-orange-500 hover:bg-orange-50 hover:text-orange-700 font-semibold py-3 rounded-xl transition-all duration-300 hover-lift"
                     >
+                      <UserPlus className="w-4 h-4 mr-2" />
                       Daftar Member
                     </Button>
                   </div>

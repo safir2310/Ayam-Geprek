@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Store,
   ShoppingCart,
@@ -20,6 +20,9 @@ import {
   BarChart3,
   Settings,
   QrCode,
+  Layers,
+  LayoutTemplate,
+  CreditCard,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,6 +39,9 @@ import ReportsPage from './ReportsPage'
 import ShiftManagement from './ShiftManagement'
 import CategoryManagement from './CategoryManagement'
 import QRISUpload from './QRISUpload'
+import PaymentMethods from './PaymentMethods'
+import PageBuilder from './PageBuilder'
+import DynamicPageViewer from './DynamicPageViewer'
 
 const RESTAURANT_INFO = {
   name: 'AYAM GEPREK SAMBAL IJO',
@@ -105,12 +111,24 @@ const LOW_STOCK_PRODUCTS = [
   { name: 'Paket Komplit 2 Orang', stock: 2, minStock: 5 },
 ]
 
-type AdminView = 'dashboard' | 'products' | 'categories' | 'orders' | 'members' | 'promos' | 'reports' | 'shifts' | 'settings'
+interface DynamicTab {
+  id: string
+  name: string
+  label: string
+  icon?: string
+  order: number
+  isActive: boolean
+  pages: any[]
+}
+
+type AdminView = 'dashboard' | 'products' | 'categories' | 'orders' | 'members' | 'promos' | 'reports' | 'shifts' | 'payment-methods' | 'qris' | 'page-builder' | string
 
 export default function AdminDashboard() {
   const { setCurrentView } = useUIStore()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeView, setActiveView] = useState<AdminView>('dashboard')
+  const [dynamicTabs, setDynamicTabs] = useState<DynamicTab[]>([])
+  const [selectedDynamicPage, setSelectedDynamicPage] = useState<any>(null)
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -137,6 +155,32 @@ export default function AdminDashboard() {
     }
   }
 
+  // Load dynamic tabs on mount
+  useEffect(() => {
+    let isMounted = true
+    const loadDynamicTabs = async () => {
+      try {
+        const response = await fetch('/api/dynamic/tabs')
+        if (response.ok && isMounted) {
+          const data = await response.json()
+          if (data.success && isMounted) {
+            setDynamicTabs(data.data)
+          }
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading dynamic tabs:', error)
+        }
+      }
+    }
+
+    loadDynamicTabs()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const sidebarItems = [
     { id: 'dashboard' as AdminView, icon: Home, label: 'Dashboard' },
     { id: 'orders' as AdminView, icon: ShoppingCart, label: 'Pesanan' },
@@ -146,7 +190,9 @@ export default function AdminDashboard() {
     { id: 'promos' as AdminView, icon: Tag, label: 'Promo' },
     { id: 'shifts' as AdminView, icon: Users, label: 'Shift Kasir' },
     { id: 'reports' as AdminView, icon: FileText, label: 'Laporan' },
-    { id: 'settings' as AdminView, icon: QrCode, label: 'Pembayaran' },
+    { id: 'payment-methods' as AdminView, icon: CreditCard, label: 'Metode Pembayaran' },
+    { id: 'qris' as AdminView, icon: QrCode, label: 'QRIS' },
+    { id: 'page-builder' as AdminView, icon: LayoutTemplate, label: 'Page Builder' },
   ]
 
   return (
@@ -184,11 +230,59 @@ export default function AdminDashboard() {
                     ? 'bg-white/20 text-white'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
-                onClick={() => setActiveView(item.id)}
+                onClick={() => {
+                  setActiveView(item.id)
+                  setSelectedDynamicPage(null)
+                }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span className="ml-3">{item.label}</span>}
               </Button>
+            ))}
+
+            {/* Dynamic Tabs */}
+            {dynamicTabs.length > 0 && <Separator className="my-4 bg-white/20" />}
+
+            {dynamicTabs.map((tab) => (
+              <div key={tab.id}>
+                <Button
+                  variant="ghost"
+                  className={`w-full justify-start ${
+                    activeView === tab.id
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  onClick={() => {
+                    setActiveView(tab.id)
+                    setSelectedDynamicPage(null)
+                  }}
+                >
+                  <Layers className="w-5 h-5 flex-shrink-0" />
+                  {sidebarOpen && <span className="ml-3">{tab.label}</span>}
+                </Button>
+
+                {/* Dynamic Pages in this tab */}
+                {sidebarOpen && activeView === tab.id && tab.pages.length > 0 && (
+                  <div className="ml-8 mt-1 space-y-1">
+                    {tab.pages.map((page: any) => (
+                      <Button
+                        key={page.id}
+                        variant="ghost"
+                        size="sm"
+                        className={`w-full justify-start text-sm ${
+                          selectedDynamicPage?.id === page.id
+                            ? 'bg-white/20 text-white'
+                            : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }`}
+                        onClick={() => setSelectedDynamicPage(page)}
+                      >
+                        <FileText className="w-4 h-4 flex-shrink-0" />
+                        <span className="ml-2">{page.title}</span>
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </nav>
         </ScrollArea>
@@ -446,11 +540,30 @@ export default function AdminDashboard() {
           {activeView === 'shifts' && <ShiftManagement />}
           {activeView === 'reports' && <ReportsPage />}
           {activeView === 'categories' && <CategoryManagement />}
-          {activeView === 'settings' && (
+          {activeView === 'payment-methods' && <PaymentMethods />}
+          {activeView === 'qris' && (
             <div className="max-w-2xl">
               <QRISUpload />
             </div>
           )}
+          {activeView === 'page-builder' && <PageBuilder />}
+
+          {/* Dynamic Pages */}
+          {dynamicTabs.find((t) => t.id === activeView) && !selectedDynamicPage && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-orange-600">
+                {dynamicTabs.find((t) => t.id === activeView)?.label}
+              </h2>
+              <Card className="border-orange-100">
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Pilih halaman dari sidebar untuk melihat konten</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {selectedDynamicPage && <DynamicPageViewer page={selectedDynamicPage} />}
         </ScrollArea>
       </main>
     </div>

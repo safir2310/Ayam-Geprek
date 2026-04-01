@@ -2,18 +2,17 @@
 
 // Main page component with customer view, navigation, and member card features
 import { useState, useEffect, useRef } from 'react'
-import { Menu, ShoppingCart, Phone, MapPin, Store, LayoutDashboard, LogIn, User, CreditCard, Loader2, CheckCircle, XCircle, Gift, Home, UserCheck, ChefHat, History, Package, LogOut, QrCode, Settings, Bell, BellRing, X, ChevronRight, Clock, IdCard, RefreshCw, Copy, Plus, Minus } from 'lucide-react'
+import { Menu, ShoppingBag, Phone, MapPin, Store, LayoutDashboard, LogIn, User, Loader2, CheckCircle, XCircle, Gift, Home, UserCheck, History, LogOut, QrCode, Settings, Bell, BellRing, X, ChevronRight, Clock, IdCard, RefreshCw, Copy, ShoppingCart, Plus, Minus, Trash2, CreditCard, Receipt, AlertCircle, Calculator, ChefHat, Camera, ScanLine, Ticket, Crown, Star, Award } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useCartStore } from '@/stores/cart-store'
+import { Switch } from '@/components/ui/switch'
 import { useUIStore } from '@/stores/ui-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { useNotificationStore } from '@/stores/notification-store'
@@ -23,6 +22,7 @@ import LoginPage from '@/components/auth/LoginPage'
 import AdminDashboard from '@/components/admin/AdminDashboard'
 import POSInterface from '@/components/pos/POSInterface'
 import ProfilePage from '@/components/profile/ProfilePage'
+import { useCartStore } from '@/stores/cart-store'
 
 // Restaurant Info
 const RESTAURANT_INFO = {
@@ -252,8 +252,7 @@ function CustomerView() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [mounted, setMounted] = useState(false)
-  const { items, add, remove, updateQuantity, getTotal, getTotalItems, clear } = useCartStore()
-  const { cartOpen, setCartOpen, currentView, setCurrentView } = useUIStore()
+  const { currentView, setCurrentView } = useUIStore()
   const { isAuthenticated, user, logout } = useAuthStore()
   const { 
     notifications, 
@@ -262,6 +261,17 @@ function CustomerView() {
     markAllAsRead, 
     removeNotification 
   } = useNotificationStore()
+
+  // Cart states
+  const [cartOpen, setCartOpen] = useState(false)
+  const { items, add, remove, updateQuantity, clear, getTotal, getTotalItems, setDiscount, setMemberPoints } = useCartStore()
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerAddress, setCustomerAddress] = useState('')
+  const [usePoints, setUsePoints] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
 
   // Data states
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES)
@@ -276,27 +286,86 @@ function CustomerView() {
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
-  
+
   // Handle client-side mounting
   useEffect(() => {
     setMounted(true)
   }, [])
-  
-  // Checkout states
-  const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [orderSuccess, setOrderSuccess] = useState(false)
-  const [createdOrder, setCreatedOrder] = useState<Order | null>(null)
-  
-  // Customer info states
-  const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [customerAddress, setCustomerAddress] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
-  const [orderNotes, setOrderNotes] = useState('')
-  
+
+  // Add to cart handler
+  const handleAddToCart = (product: Product) => {
+    add({
+      productId: product.id,
+      productName: product.name,
+      productImage: product.image || undefined,
+      price: product.price,
+      quantity: 1,
+      category: product.category?.name || 'Menu'
+    })
+    toast({
+      title: 'Berhasil Ditambahkan',
+      description: `${product.name} masuk ke keranjang`,
+    })
+  }
+
+  // Checkout handler
+  const handleCheckout = async () => {
+    if (!customerName || !customerPhone) {
+      toast({
+        title: 'Data Tidak Lengkap',
+        description: 'Nama dan nomor telepon wajib diisi',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setCheckoutLoading(true)
+    try {
+      const total = getTotal()
+      const pointsUsed = usePoints && member ? Math.min(member.points, Math.floor(total / 100)) : 0
+      const discountAmount = pointsUsed * 100
+      setDiscount(discountAmount)
+
+      const orderData = {
+        customerName,
+        customerPhone,
+        customerAddress: customerAddress || '-',
+        totalAmount: total,
+        paymentMethod,
+        pointsUsed,
+        items: items.map((item) => ({
+          productId: item.productId,
+          productName: item.productName,
+          price: item.price,
+          quantity: item.quantity
+        }))
+      }
+
+      const order = await createOrder(orderData)
+      clear()
+      setCheckoutOpen(false)
+      setCustomerName('')
+      setCustomerPhone('')
+      setCustomerAddress('')
+      setUsePoints(false)
+      setCartOpen(false)
+      toast({
+        title: 'Pesanan Berhasil',
+        description: `Order #${order.orderNumber} telah dibuat`,
+      })
+      setActiveTab('orders')
+    } catch (err: any) {
+      toast({
+        title: 'Gagal Membuat Pesanan',
+        description: err.message || 'Terjadi kesalahan',
+        variant: 'destructive'
+      })
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
   // Member states
-  const [showMemberSection, setShowMemberSection] = useState(false)
   const [memberPhone, setMemberPhone] = useState('')
   const [member, setMember] = useState<Member | null>(null)
   const [memberLoading, setMemberLoading] = useState(false)
@@ -304,15 +373,12 @@ function CustomerView() {
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberAddress, setNewMemberAddress] = useState('')
-  
-  // Point redemption states
-  const [pointsToRedeem, setPointsToRedeem] = useState(0)
-  const [redeemPoints, setRedeemPoints] = useState(false)
 
   // Member Card states
   const [memberCardOpen, setMemberCardOpen] = useState(false)
   const [memberCardLoading, setMemberCardLoading] = useState(false)
   const [memberCardData, setMemberCardData] = useState<{ qrData: string; memberNumber: string } | null>(null)
+  const [viewMode, setViewMode] = useState<'card' | 'barcode' | 'qr'>('card') // viewMode: card, barcode, qr
   const barcodeRef = useRef<SVGSVGElement>(null)
 
   // Load data on mount
@@ -369,14 +435,7 @@ function CustomerView() {
     const matchesStock = product.stock > 0 || !product.isActive
     return matchesCategory && matchesSearch && matchesStock
   })
-  
-  // Calculate order totals
-  const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const pointsDiscount = redeemPoints ? pointsToRedeem * 10000 : 0
-  const totalAmount = Math.max(0, subtotal - pointsDiscount)
-  const availablePoints = member ? member.points : 0
-  const maxRedeemablePoints = Math.min(availablePoints, Math.floor(subtotal / 10000))
-  
+
   // Member lookup handler
   const handleMemberLookup = async () => {
     if (!memberPhone || memberPhone.length < 10) {
@@ -393,10 +452,6 @@ function CustomerView() {
       const foundMember = await lookupMemberByPhone(memberPhone)
       if (foundMember) {
         setMember(foundMember)
-        // Auto-fill customer address with member address
-        if (foundMember.address) {
-          setCustomerAddress(foundMember.address)
-        }
         setShowRegisterForm(false)
         toast({
           title: 'Member Ditemukan',
@@ -456,86 +511,6 @@ function CustomerView() {
       setMemberLoading(false)
     }
   }
-  
-  // Checkout handler
-  const handleCheckout = async () => {
-    // Validation
-    if (!customerName || !customerPhone || !customerAddress) {
-      toast({
-        title: 'Data Tidak Lengkap',
-        description: 'Mohon lengkapi nama, nomor telepon, dan alamat pengiriman',
-        variant: 'destructive'
-      })
-      return
-    }
-    
-    if (items.length === 0) {
-      toast({
-        title: 'Keranjang Kosong',
-        description: 'Tambahkan produk ke keranjang terlebih dahulu',
-        variant: 'destructive'
-      })
-      return
-    }
-    
-    setCheckoutLoading(true)
-    try {
-      const orderData = {
-        memberId: member?.id,
-        customerName,
-        customerPhone,
-        customerAddress,
-        items: items.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-          discount: 0
-        })),
-        paymentMethod,
-        notes: orderNotes,
-        pointsUsed: redeemPoints ? pointsToRedeem : 0
-      }
-      
-      const order = await createOrder(orderData)
-      setCreatedOrder(order)
-      setOrderSuccess(true)
-      clear()
-      setCheckoutOpen(false)
-      
-      toast({
-        title: 'Pesanan Berhasil',
-        description: `Pesanan ${order.orderNumber} telah dibuat`,
-      })
-    } catch (err: any) {
-      toast({
-        title: 'Gagal Membuat Pesanan',
-        description: err.message || 'Terjadi kesalahan saat membuat pesanan',
-        variant: 'destructive'
-      })
-    } finally {
-      setCheckoutLoading(false)
-    }
-  }
-  
-  // Reset checkout form
-  const resetCheckoutForm = () => {
-    setCustomerName('')
-    setCustomerPhone('')
-    setCustomerAddress('')
-    setPaymentMethod('CASH')
-    setOrderNotes('')
-    setMember(null)
-    setMemberPhone('')
-    setShowMemberSection(false)
-    setShowRegisterForm(false)
-    setNewMemberName('')
-    setNewMemberEmail('')
-    setNewMemberAddress('')
-    setPointsToRedeem(0)
-    setRedeemPoints(false)
-    setOrderSuccess(false)
-    setCreatedOrder(null)
-  }
 
   // Member Card handler
   const handleOpenMemberCard = async () => {
@@ -548,42 +523,36 @@ function CustomerView() {
       return
     }
 
+    // Validasi nomor HP
+    const phoneNumber = user.phone
+    if (!phoneNumber) {
+      toast({
+        title: 'Data Tidak Lengkap',
+        description: 'Nomor telepon belum diisi. Silakan update profil Anda.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setMemberCardLoading(true)
     try {
-      // Use query parameter instead of dynamic route
-      const response = await fetch(`/api/members/qr?memberId=${encodeURIComponent(user.id)}`)
-      const data = await response.json()
+      // Gunakan nomor HP langsung sebagai data QR dan barcode
+      const memberNumber = phoneNumber
+      setMemberCardData({
+        qrData: memberNumber,
+        memberNumber: memberNumber
+      })
+      setMemberCardOpen(true)
 
-      if (data.success) {
-        const memberNumber = user.phone || `MBR-${user.id.slice(-8).toUpperCase()}`
-        setMemberCardData({
-          qrData: data.data.qrData,
-          memberNumber: memberNumber
-        })
-        setMemberCardOpen(true)
+      // Generate barcode setelah dialog terbuka
+      setTimeout(() => {
+        generateBarcode(memberNumber, viewMode)
+      }, 100)
 
-        // Generate barcode after dialog opens
-        setTimeout(() => {
-          if (barcodeRef.current) {
-            JsBarcode(barcodeRef.current, memberNumber, {
-              format: 'CODE128',
-              width: 2,
-              height: 50,
-              displayValue: true,
-              fontSize: 14,
-              margin: 10,
-              background: '#ffffff',
-              lineColor: '#000000',
-            })
-          }
-        }, 100)
-      } else {
-        toast({
-          title: 'Gagal',
-          description: data.error || 'Gagal membuat kartu member',
-          variant: 'destructive',
-        })
-      }
+      toast({
+        title: 'Berhasil',
+        description: 'Kartu member berhasil dimuat',
+      })
     } catch (error) {
       console.error('Error generating member card:', error)
       toast({
@@ -596,20 +565,67 @@ function CustomerView() {
     }
   }
 
-  const handleAddToCart = (product: Product) => {
-    add({
-      productId: product.id,
-      productName: product.name,
-      productImage: product.image || undefined,
-      price: product.price,
-      quantity: 1,
-      category: product.category?.name || '',
-    })
-    toast({
-      title: 'Berhasil ditambahkan',
-      description: `${product.name} masuk keranjang`,
-    })
+  // Generate barcode function
+  const generateBarcode = (memberNumber: string, mode: 'card' | 'barcode' | 'qr') => {
+    if (!barcodeRef.current) return
+
+    let config: {
+      format: 'CODE128'
+      width: number
+      height: number
+      displayValue: boolean
+      fontSize: number
+      margin: number
+      background: string
+      lineColor: string
+    }
+
+    if (mode === 'barcode') {
+      config = {
+        format: 'CODE128',
+        width: 2,
+        height: 96,
+        displayValue: true,
+        fontSize: 14,
+        margin: 10,
+        background: '#ffffff',
+        lineColor: '#000000',
+      }
+    } else if (mode === 'card') {
+      config = {
+        format: 'CODE128',
+        width: 1.5,
+        height: 48,
+        displayValue: true,
+        fontSize: 10,
+        margin: 5,
+        background: '#ffffff',
+        lineColor: '#000000',
+      }
+    } else {
+      config = {
+        format: 'CODE128',
+        width: 1,
+        height: 32,
+        displayValue: true,
+        fontSize: 8,
+        margin: 3,
+        background: '#ffffff',
+        lineColor: '#000000',
+      }
+    }
+
+    JsBarcode(barcodeRef.current, memberNumber, config)
   }
+
+  // Regenerate barcode when viewMode changes
+  useEffect(() => {
+    if (memberCardData?.memberNumber) {
+      setTimeout(() => {
+        generateBarcode(memberCardData.memberNumber, viewMode)
+      }, 50)
+    }
+  }, [viewMode, memberCardData])
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -634,6 +650,11 @@ function CustomerView() {
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const pointsUsed = usePoints && member ? Math.min(member.points, Math.floor(subtotal / 100)) : 0
+  const discountAmount = pointsUsed * 100
+  const finalTotal = Math.max(0, subtotal - discountAmount)
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex flex-col">
@@ -649,7 +670,7 @@ function CustomerView() {
                   <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
                     {RESTAURANT_INFO.name}
                   </h1>
-                  <p className="text-xs text-muted-foreground">🍗 Lezat • Pedas • Nikmat</p>
+                  <p className="text-xs text-muted-foreground">🍗 Pedasnya Bikin Nangih!!</p>
                 </div>
               </div>
 
@@ -666,8 +687,13 @@ function CustomerView() {
         {/* Hero Section */}
         <section className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white py-12 md:py-16">
           <div className="container mx-auto px-4 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-white/20 p-4 rounded-full backdrop-blur-sm">
+                <ChefHat className="w-16 h-16" />
+              </div>
+            </div>
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              🍗 AYAM GEPREK SAMBAL IJO
+              AYAM GEPREK SAMBAL IJO
             </h2>
             <p className="text-lg md:text-xl opacity-90 mb-6">
               Pedasnya Nampol, Rasanya Juara!
@@ -680,19 +706,43 @@ function CustomerView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex flex-col" suppressHydrationWarning>
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-orange-100" suppressHydrationWarning>
+      {/* Custom Scrollbar Styles */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(251, 146, 60, 0.1);
+            border-radius: 4px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
+            border-radius: 4px;
+            border: 1px solid rgba(234, 88, 12, 0.3);
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+            border: 1px solid rgba(194, 65, 12, 0.5);
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(180deg, #c2410c 0%, #a31607 100%);
+          }
+        `
+      }} />
+      {/* Header - Premium Glassmorphism */}
+      <header className="sticky top-0 z-50 glass border-b border-white/50 shadow-premium" suppressHydrationWarning>
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-2 rounded-xl">
+              <div className="bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 p-2.5 rounded-2xl shadow-glow-orange hover-lift animate-fade-in">
                 <Store className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+              <div className="animate-fade-in-up stagger-1">
+                <h1 className="text-xl font-bold text-gradient-orange tracking-tight">
                   {RESTAURANT_INFO.name}
                 </h1>
-                <p className="text-xs text-muted-foreground">🍗 Lezat • Pedas • Nikmat</p>
+                <p className="text-xs text-muted-foreground tracking-wide">🍗 Pedasnya Bikin Nangih!!</p>
               </div>
             </div>
 
@@ -834,217 +884,178 @@ function CustomerView() {
         </div>
       </header>
 
-      {/* Cart Sheet - Simplified Design */}
-      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-        <SheetContent className="w-full sm:max-w-[400px] p-0 flex flex-col">
-          <SheetHeader className="px-4 py-4 border-b bg-gradient-to-r from-orange-500 to-red-500 text-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5" />
-                <SheetTitle className="text-white">Keranjang</SheetTitle>
-              </div>
-              {items.length > 0 && (
-                <Badge className="bg-white text-orange-600">
-                  {getTotalItems()} item
-                </Badge>
-              )}
+      {/* Hero Section - Premium */}
+      <section className="relative overflow-hidden bg-gradient-sunset text-white py-16 md:py-20">
+        {/* Animated Background Particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-float" style={{ animationDelay: '0s' }}></div>
+          <div className="absolute top-20 right-20 w-48 h-48 bg-amber-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute bottom-10 left-1/4 w-40 h-40 bg-orange-300/10 rounded-full blur-2xl animate-float" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute bottom-20 right-1/3 w-36 h-36 bg-yellow-400/10 rounded-full blur-2xl animate-float" style={{ animationDelay: '1.5s' }}></div>
+        </div>
+
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <div className="flex justify-center mb-6 animate-fade-in-down">
+            <div className="glass-gold p-5 rounded-3xl animate-float shadow-glow-gold">
+              <ChefHat className="w-20 h-20 text-amber-300" />
             </div>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto p-4">
-            {items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-4">
-                  <ShoppingCart className="w-10 h-10 text-orange-500" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Keranjang Kosong</h3>
-                <p className="text-sm text-muted-foreground">Tambahkan menu favorit Anda sekarang!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {items.map((item) => (
-                  <div
-                    key={item.productId}
-                    className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-white rounded-xl border border-orange-100 hover:shadow-sm transition-all group"
-                  >
-                    {/* Product Info */}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm truncate">{item.productName}</h4>
-                      <p className="text-orange-600 font-bold mt-1">
-                        {formatPrice(item.price * item.quantity)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatPrice(item.price)} / pcs
-                      </p>
-                    </div>
-
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-orange-600 hover:bg-orange-100"
-                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                        disabled={item.quantity <= 1}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <span className="w-8 text-center font-semibold text-base">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-orange-600 hover:bg-orange-100"
-                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    {/* Remove Button */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => remove(item.productId)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-
-          {/* Footer - Total & Checkout */}
-          {items.length > 0 && (
-            <div className="border-t bg-white p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Total</span>
-                <span className="text-2xl font-bold text-orange-600">
-                  {formatPrice(getTotal())}
-                </span>
-              </div>
-              <Button
-                className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 text-base"
-                size="lg"
-                onClick={() => {
-                  setCheckoutOpen(true)
-                }}
-              >
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                Checkout Sekarang
-              </Button>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white py-12 md:py-16">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold mb-4">
-            🍗 AYAM GEPREK SAMBAL IJO
+          <h2 className="text-4xl md:text-6xl font-black mb-4 animate-fade-in-up stagger-1 text-shadow-premium tracking-tight">
+            AYAM GEPREK SAMBAL IJO
           </h2>
-          <p className="text-lg md:text-xl opacity-90 mb-6">
+          <p className="text-xl md:text-2xl opacity-95 mb-8 animate-fade-in-up stagger-2 font-light tracking-wide">
             Pedasnya Nampol, Rasanya Juara!
           </p>
+          <div className="flex flex-wrap justify-center gap-4 animate-fade-in-up stagger-3">
+            <Button
+              onClick={() => {
+                const menuSection = document.getElementById('menu-section')
+                menuSection?.scrollIntoView({ behavior: 'smooth' })
+              }}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-md border-2 border-white/30 text-white font-semibold px-8 py-3 rounded-full hover-scale shadow-premium"
+            >
+              <ShoppingBag className="w-5 h-5 mr-2" />
+              Pesan Sekarang
+            </Button>
+            <Button
+              onClick={() => setCurrentView('login')}
+              className="bg-gradient-gold hover:opacity-90 text-amber-900 font-semibold px-8 py-3 rounded-full hover-scale shadow-premium-lg"
+            >
+              <User className="w-5 h-5 mr-2" />
+              Daftar Member
+            </Button>
+          </div>
         </div>
+
+        {/* Bottom Gradient Fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-50 to-transparent"></div>
       </section>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 flex-1">
+      <main id="menu-section" className="container mx-auto px-4 py-8 flex-1">
         {activeTab === 'menu' && (
-          <div className="space-y-6">
-            {/* Search and Filter */}
-            <div className="space-y-4">
-              <Input
-                placeholder="Cari menu favorit Anda..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="max-w-md"
-              />
+          <div className="space-y-8 animate-fade-in">
+            {/* Search and Filter - Premium */}
+            <div className="space-y-6">
+              <div className="relative max-w-2xl mx-auto animate-fade-in-up stagger-1">
+                <Input
+                  placeholder="🔍 Cari menu favorit Anda..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-14 pl-12 pr-6 text-base border-2 border-orange-200 rounded-2xl focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 glass shadow-premium transition-all duration-300"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
 
-              {/* Category Pills */}
-              <div className="flex flex-wrap gap-2">
+              {/* Category Pills - Premium */}
+              <div className="flex flex-wrap gap-3 justify-center animate-fade-in-up stagger-2">
                 {loading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Memuat kategori...</span>
+                  <div className="flex items-center gap-2 text-muted-foreground px-6 py-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                    <span className="font-medium">Memuat kategori...</span>
                   </div>
                 ) : (
-                  categories.map((category) => (
+                  categories.map((category, index) => (
                     <Button
                       key={category.id}
                       variant={activeCategory === category.id ? 'default' : 'outline'}
                       onClick={() => setActiveCategory(category.id)}
-                      className={
+                      className={`px-6 py-3 rounded-full font-medium transition-all duration-300 hover-lift animate-fade-in ${
                         activeCategory === category.id
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
-                          : ''
-                      }
+                          ? 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white shadow-glow-orange border-0 scale-105'
+                          : 'border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 text-gray-700 bg-white'
+                      }`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
                     >
-                      <span className="mr-2">{category.icon || '📦'}</span>
+                      <span className="mr-2 text-lg">{category.icon || '📦'}</span>
                       {category.name}
+                      {category.productCount !== undefined && category.productCount > 0 && (
+                        <Badge 
+                          variant={activeCategory === category.id ? 'secondary' : 'outline'} 
+                          className="ml-2 text-xs px-2 py-0.5 rounded-full"
+                        >
+                          {category.productCount}
+                        </Badge>
+                      )}
                     </Button>
                   ))
                 )}
               </div>
             </div>
 
-            {/* Product Grid */}
+            {/* Product Grid - Premium */}
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-                <p className="text-muted-foreground">Memuat menu...</p>
+              <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
+                <div className="relative">
+                  <Loader2 className="w-16 h-16 text-orange-500 animate-spin" />
+                  <div className="absolute inset-0 bg-orange-500/20 blur-xl animate-pulse"></div>
+                </div>
+                <p className="text-muted-foreground text-lg mt-6 font-medium">Memuat menu...</p>
               </div>
             ) : error ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <XCircle className="w-12 h-12 text-red-500 mb-4" />
-                <p className="text-red-500 mb-4">{error}</p>
-                <Button onClick={() => window.location.reload()}>
+              <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
+                <div className="bg-red-100 p-6 rounded-full mb-4 animate-bounce">
+                  <XCircle className="w-16 h-16 text-red-500" />
+                </div>
+                <p className="text-red-500 text-lg mb-4 font-semibold">{error}</p>
+                <Button 
+                  onClick={() => window.location.reload()}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-full px-8 py-3 hover-lift"
+                >
                   Coba Lagi
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 animate-fade-in-up stagger-3">
+                {filteredProducts.map((product, index) => (
                   <Card
                     key={product.id}
-                    className={`overflow-hidden hover:shadow-lg transition-shadow border-orange-100 ${product.stock === 0 ? 'opacity-50' : ''}`}
+                    className={`premium-card overflow-hidden group ${product.stock === 0 ? 'opacity-50 grayscale' : ''}`}
+                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
-                    <div className="relative h-48 overflow-hidden bg-orange-50">
+                    <div className="relative h-40 md:h-56 overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50">
                       <img
                         src={product.image || 'https://images.unsplash.com/photo-1606787620819-8bdf0c44c293?w=400&h=300&fit=crop'}
                         alt={product.name}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                       />
-                      <Badge className="absolute top-2 right-2 bg-orange-500">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <Badge className="absolute top-2 right-2 md:top-3 md:right-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-2 py-0.5 md:px-3 py-1 rounded-full shadow-lg border-2 border-white/30 text-[10px] md:text-xs">
                         {product.category?.name || 'Menu'}
                       </Badge>
                       {product.stock === 0 && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Badge variant="destructive">Stok Habis</Badge>
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                          <Badge variant="destructive" className="text-[10px] md:text-sm px-2 py-1 md:px-4 py-1 md:py-2 rounded-full shadow-lg">
+                            Stok Habis
+                          </Badge>
                         </div>
                       )}
                     </div>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                    <CardContent className="p-3 md:p-5">
+                      <h3 className="font-bold text-sm md:text-lg mb-1 md:mb-2 text-gray-800 line-clamp-1 group-hover:text-orange-600 transition-colors">
+                        {product.name}
+                      </h3>
+                      <p className="text-[10px] md:text-sm text-muted-foreground mb-2 md:mb-4 line-clamp-2 leading-relaxed hidden sm:block">
                         {product.description || 'Lezat dan nikmat'}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-xl font-bold text-orange-600">
-                          {formatPrice(product.price)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-lg md:text-2xl font-black text-gradient-orange">
+                            {formatPrice(product.price)}
+                          </span>
+                        </div>
                         <Button
                           size="sm"
                           onClick={() => handleAddToCart(product)}
                           disabled={product.stock === 0}
-                          className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                          className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white px-2 py-2 md:px-4 md:py-2.5 rounded-lg md:rounded-xl font-semibold text-[10px] md:text-sm shadow-glow-orange hover:shadow-glow-orange hover-lift transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          + Keranjang
+                          <ShoppingBag className="w-3 h-3 md:w-4 md:h-4 mr-0.5 md:mr-1" />
+                          <span className="hidden md:inline">Tambah</span>
                         </Button>
                       </div>
                     </CardContent>
@@ -1184,378 +1195,24 @@ function CustomerView() {
         )}
       </main>
 
-      {/* Checkout Sheet */}
-      <Sheet open={checkoutOpen} onOpenChange={(open) => {
-        setCheckoutOpen(open)
-        if (!open) resetCheckoutForm()
-      }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Checkout Pesanan</SheetTitle>
-          </SheetHeader>
-          
-          {orderSuccess && createdOrder ? (
-            <div className="mt-6 space-y-4">
-              <div className="text-center py-8">
-                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                <h3 className="text-2xl font-bold text-green-600 mb-2">Pesanan Berhasil!</h3>
-                <p className="text-muted-foreground mb-4">
-                  Pesanan Anda telah dibuat dan sedang diproses
-                </p>
-                <Card className="bg-orange-50 border-orange-200">
-                  <CardContent className="p-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">No. Pesanan:</span>
-                        <span className="font-semibold">{createdOrder.orderNumber}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nama:</span>
-                        <span className="font-semibold">{createdOrder.customerName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total:</span>
-                        <span className="font-semibold text-orange-600">{formatPrice(createdOrder.totalAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Pembayaran:</span>
-                        <span className="font-semibold">{createdOrder.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}</span>
-                      </div>
-                      {member && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Poin:</span>
-                          <span className="font-semibold">+{createdOrder.pointsEarned}</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Button
-                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600"
-                  onClick={() => {
-                    setOrderSuccess(false)
-                    setCreatedOrder(null)
-                    setCheckoutOpen(false)
-                  }}
-                >
-                  Tutup
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-6">
-              {/* Order Summary */}
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <ShoppingCart className="w-4 h-4" />
-                    Ringkasan Pesanan
-                  </h3>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {items.map((item) => (
-                      <div key={item.productId} className="flex justify-between text-sm">
-                        <span>{item.productName} x{item.quantity}</span>
-                        <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t mt-3 pt-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal</span>
-                      <span>{formatPrice(subtotal)}</span>
-                    </div>
-                    {redeemPoints && pointsToRedeem > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Diskon Poin</span>
-                        <span>-{formatPrice(pointsDiscount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                      <span>Total</span>
-                      <span className="text-orange-600">{formatPrice(totalAmount)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Customer Information */}
-              <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Informasi Pelanggan
-                </h3>
-                <div className="grid gap-3">
-                  <div>
-                    <Label htmlFor="customerName">Nama Lengkap *</Label>
-                    <Input
-                      id="customerName"
-                      value={customerName || (member?.name || '')}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Masukkan nama lengkap"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="customerPhone">Nomor Telepon *</Label>
-                    <Input
-                      id="customerPhone"
-                      value={customerPhone || (member?.phone || '')}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Contoh: 085260812758"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="customerAddress">Alamat Pengiriman *</Label>
-                    <textarea
-                      id="customerAddress"
-                      value={customerAddress || (member?.address || '')}
-                      onChange={(e) => setCustomerAddress(e.target.value)}
-                      placeholder="Masukkan alamat lengkap pengiriman"
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Member Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Gift className="w-4 h-4" />
-                    Member
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowMemberSection(!showMemberSection)}
-                  >
-                    {showMemberSection ? 'Tutup' : 'Cari Member'}
-                  </Button>
-                </div>
-                
-                {showMemberSection && (
-                  <Card className="bg-orange-50 border-orange-200">
-                    <CardContent className="p-4 space-y-3">
-                      {member ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold">{member.name}</p>
-                              <p className="text-sm text-muted-foreground">{member.phone}</p>
-                            </div>
-                            <Badge className={
-                              member.tier === 'PLATINUM' ? 'bg-purple-500' :
-                              member.tier === 'GOLD' ? 'bg-yellow-500' :
-                              member.tier === 'SILVER' ? 'bg-gray-500' :
-                              'bg-orange-500'
-                            }>
-                              {member.tier}
-                            </Badge>
-                          </div>
-                          <div className="bg-white p-2 rounded-lg">
-                            <p className="text-sm font-semibold text-orange-600">
-                              {member.points} Poin Tersedia
-                            </p>
-                          </div>
-                          {member.points > 0 && maxRedeemablePoints > 0 && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  id="redeemPoints"
-                                  checked={redeemPoints}
-                                  onChange={(e) => {
-                                    setRedeemPoints(e.target.checked)
-                                    if (e.target.checked) {
-                                      setPointsToRedeem(maxRedeemablePoints)
-                                    } else {
-                                      setPointsToRedeem(0)
-                                    }
-                                  }}
-                                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                                />
-                                <Label htmlFor="redeemPoints" className="text-sm cursor-pointer">
-                                  Tukarkan Poin
-                                </Label>
-                              </div>
-                              {redeemPoints && (
-                                <div className="flex items-center gap-2">
-                                  <Label htmlFor="pointsToRedeem" className="text-sm">Poin:</Label>
-                                  <Input
-                                    id="pointsToRedeem"
-                                    type="number"
-                                    min="0"
-                                    max={maxRedeemablePoints}
-                                    value={pointsToRedeem}
-                                    onChange={(e) => setPointsToRedeem(Math.min(maxRedeemablePoints, Math.max(0, parseInt(e.target.value) || 0)))}
-                                    className="w-24"
-                                  />
-                                  <span className="text-sm text-muted-foreground">
-                                    / {maxRedeemablePoints} (Max)
-                                  </span>
-                                </div>
-                              )}
-                              {redeemPoints && pointsToRedeem > 0 && (
-                                <p className="text-sm text-green-600 font-medium">
-                                  Diskon: {formatPrice(pointsDiscount)}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setMember(null)
-                              setMemberPhone('')
-                              setPointsToRedeem(0)
-                              setRedeemPoints(false)
-                            }}
-                          >
-                            Ganti Member
-                          </Button>
-                        </div>
-                      ) : showRegisterForm ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium">Daftar Member Baru</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowRegisterForm(false)}
-                            >
-                              Batal
-                            </Button>
-                          </div>
-                          <Input
-                            placeholder="Nama Lengkap *"
-                            value={newMemberName}
-                            onChange={(e) => setNewMemberName(e.target.value)}
-                          />
-                          <Input
-                            placeholder="Email (opsional)"
-                            value={newMemberEmail}
-                            onChange={(e) => setNewMemberEmail(e.target.value)}
-                          />
-                          <Input
-                            placeholder="Alamat (opsional)"
-                            value={newMemberAddress}
-                            onChange={(e) => setNewMemberAddress(e.target.value)}
-                          />
-                          <Button
-                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600"
-                            onClick={handleMemberRegister}
-                            disabled={memberLoading}
-                          >
-                            {memberLoading ? (
-                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mendaftar...</>
-                            ) : 'Daftar Sekarang'}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Punya nomor member? Masukkan untuk dapatkan poin!
-                          </p>
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Nomor Telepon Member"
-                              value={memberPhone}
-                              onChange={(e) => setMemberPhone(e.target.value)}
-                            />
-                            <Button
-                              onClick={handleMemberLookup}
-                              disabled={memberLoading}
-                              className="bg-gradient-to-r from-orange-500 to-orange-600"
-                            >
-                              {memberLoading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                'Cari'
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              {/* Payment Method */}
-              <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <CreditCard className="w-4 h-4" />
-                  Metode Pembayaran
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant={paymentMethod === 'CASH' ? 'default' : 'outline'}
-                    className={
-                      paymentMethod === 'CASH'
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600'
-                        : ''
-                    }
-                    onClick={() => setPaymentMethod('CASH')}
-                  >
-                    💵 Tunai
-                  </Button>
-                  <Button
-                    variant={paymentMethod === 'QRIS_CPM' ? 'default' : 'outline'}
-                    className={
-                      paymentMethod === 'QRIS_CPM'
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600'
-                        : ''
-                    }
-                    onClick={() => setPaymentMethod('QRIS_CPM')}
-                  >
-                    📱 QRIS CPM
-                  </Button>
-                </div>
-              </div>
-
-              {/* Order Notes */}
-              <div className="space-y-3">
-                <Label htmlFor="orderNotes">Catatan Pesanan (Opsional)</Label>
-                <textarea
-                  id="orderNotes"
-                  value={orderNotes}
-                  onChange={(e) => setOrderNotes(e.target.value)}
-                  placeholder="Contoh: Sambal jangan terlalu pedas"
-                  className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                />
-              </div>
-
-              {/* Checkout Button */}
-              <Button
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-                size="lg"
-                onClick={handleCheckout}
-                disabled={checkoutLoading || items.length === 0}
-              >
-                {checkoutLoading ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memproses...</>
-                ) : (
-                  `Bayar ${formatPrice(totalAmount)}`
-                )}
-              </Button>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Bottom Navigation Bar - Visible on All Screen Sizes */}
-      <nav className="sticky bottom-0 z-50 bg-white border-t border-orange-100 shadow-lg" suppressHydrationWarning>
+      {/* Bottom Navigation Bar - Premium Glassmorphism */}
+      <nav className="sticky bottom-0 z-50 glass border-t border-white/60 shadow-premium-lg" suppressHydrationWarning>
         <div className="container mx-auto px-2">
-          <div className="flex items-center justify-between py-2">
+          <div className="flex items-center justify-between py-3">
             {/* Beranda */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setActiveTab('menu')}
-              className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeTab === 'menu' ? 'text-orange-600 bg-orange-50' : 'text-muted-foreground'}`}
+              className={`flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl transition-all duration-300 ${
+                activeTab === 'menu' 
+                  ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-glow-orange scale-105' 
+                  : 'text-muted-foreground hover:bg-orange-50/50 hover:text-orange-600'
+              }`}
             >
-              <Home className="w-5 h-5" />
-              <span className="text-xs font-medium">Beranda</span>
+              <Home className="w-5 h-5 transition-transform duration-300" />
+              <span className="text-xs font-semibold">Beranda</span>
             </Button>
 
             {/* Keranjang */}
@@ -1563,17 +1220,17 @@ function CustomerView() {
               variant="ghost"
               size="sm"
               onClick={() => setCartOpen(true)}
-              className={`flex flex-col items-center gap-1 h-auto py-2 px-3 relative ${cartOpen ? 'text-orange-600 bg-orange-50' : 'text-muted-foreground'}`}
+              className="flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl text-muted-foreground hover:bg-orange-50/50 hover:text-orange-600 transition-all duration-300"
             >
               <div className="relative">
-                <ShoppingCart className="w-5 h-5" />
-                {mounted && getTotalItems() > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-4 w-4 flex items-center justify-center p-0 bg-orange-600 text-white text-xs">
-                    {getTotalItems()}
+                <ShoppingCart className="w-5 h-5 transition-transform duration-300" />
+                {items.length > 0 && (
+                  <Badge className="absolute -top-2 -right-2 h-5.5 w-5.5 flex items-center justify-center p-0 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-xs font-bold shadow-glow-orange border-2 border-white/30 animate-bounce">
+                    {getTotalItems() > 9 ? '9+' : getTotalItems()}
                   </Badge>
                 )}
               </div>
-              <span className="text-xs font-medium">Keranjang</span>
+              <span className="text-xs font-semibold">Keranjang</span>
             </Button>
 
             {/* QR Member */}
@@ -1581,10 +1238,10 @@ function CustomerView() {
               variant="ghost"
               size="sm"
               onClick={handleOpenMemberCard}
-              className="flex flex-col items-center gap-1 h-auto py-2 px-3"
+              className="flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl text-muted-foreground hover:bg-orange-50/50 hover:text-orange-600 transition-all duration-300"
             >
-              <QrCode className="w-5 h-5" />
-              <span className="text-xs font-medium">QR Member</span>
+              <QrCode className="w-5 h-5 transition-transform duration-300" />
+              <span className="text-xs font-semibold">QR Member</span>
             </Button>
 
             {/* Riwayat Pesanan */}
@@ -1592,10 +1249,14 @@ function CustomerView() {
               variant="ghost"
               size="sm"
               onClick={() => setActiveTab('orders')}
-              className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeTab === 'orders' ? 'text-orange-600 bg-orange-50' : 'text-muted-foreground'}`}
+              className={`flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl transition-all duration-300 ${
+                activeTab === 'orders' 
+                  ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-glow-orange scale-105' 
+                  : 'text-muted-foreground hover:bg-orange-50/50 hover:text-orange-600'
+              }`}
             >
-              <History className="w-5 h-5" />
-              <span className="text-xs font-medium">Riwayat</span>
+              <History className="w-5 h-5 transition-transform duration-300" />
+              <span className="text-xs font-semibold">Riwayat</span>
             </Button>
 
             {/* Profile */}
@@ -1604,20 +1265,20 @@ function CustomerView() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentView('profile')}
-                className="flex flex-col items-center gap-1 h-auto py-2 px-3"
+                className="flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl text-muted-foreground hover:bg-orange-50/50 hover:text-orange-600 transition-all duration-300"
               >
-                <User className="w-5 h-5" />
-                <span className="text-xs font-medium">Profile</span>
+                <User className="w-5 h-5 transition-transform duration-300" />
+                <span className="text-xs font-semibold">Profile</span>
               </Button>
             ) : (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setCurrentView('login')}
-                className="flex flex-col items-center gap-1 h-auto py-2 px-3"
+                className="flex flex-col items-center gap-1.5 h-auto py-2.5 px-4 rounded-2xl text-muted-foreground hover:bg-orange-50/50 hover:text-orange-600 transition-all duration-300"
               >
-                <LogIn className="w-5 h-5" />
-                <span className="text-xs font-medium">Login</span>
+                <LogIn className="w-5 h-5 transition-transform duration-300" />
+                <span className="text-xs font-semibold">Login</span>
               </Button>
             )}
           </div>
@@ -1626,143 +1287,626 @@ function CustomerView() {
 
       {/* Member Card Dialog */}
       <Dialog open={memberCardOpen} onOpenChange={setMemberCardOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <IdCard className="w-5 h-5 text-orange-600" />
-              Kartu Member
-            </DialogTitle>
-            <DialogDescription>
-              Scan QR code atau barcode ini untuk mengumpulkan poin
+        <DialogContent className="sm:max-w-sm max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-3 shrink-0">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <IdCard className="w-4 h-4 text-orange-600" />
+                  Kartu Member
+                </DialogTitle>
+              </div>
+              {/* Mode Selector - Enhanced */}
+              <div className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl p-1.5 border border-gray-300 shadow-inner">
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setViewMode('card')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 relative ${
+                      viewMode === 'card'
+                        ? 'bg-white text-orange-600 shadow-md ring-2 ring-orange-300'
+                        : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
+                    }`}
+                  >
+                    <Ticket className="w-3.5 h-3.5" />
+                    <span>Kartu</span>
+                    {viewMode === 'card' && (
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-500"></div>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setViewMode('barcode')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 relative ${
+                      viewMode === 'barcode'
+                        ? 'bg-white text-orange-600 shadow-md ring-2 ring-orange-300'
+                        : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
+                    }`}
+                  >
+                    <ScanLine className="w-3.5 h-3.5" />
+                    <span>Barcode</span>
+                    {viewMode === 'barcode' && (
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-500"></div>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setViewMode('qr')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 relative ${
+                      viewMode === 'qr'
+                        ? 'bg-white text-orange-600 shadow-md ring-2 ring-orange-300'
+                        : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
+                    }`}
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>QR Code</span>
+                    {viewMode === 'qr' && (
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-500"></div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <DialogDescription className="text-xs pt-1">
+              {viewMode === 'card' && 'Tampilkan kartu member lengkap dengan QR dan Barcode terpisah'}
+              {viewMode === 'barcode' && 'Tampilkan barcode besar untuk memudahkan scan'}
+              {viewMode === 'qr' && 'Tampilkan QR Code besar untuk memudahkan scan'}
             </DialogDescription>
           </DialogHeader>
 
-          {memberCardLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-600 border-t-transparent" />
-              <p className="mt-4 text-muted-foreground">Memuat kartu member...</p>
-            </div>
-          ) : memberCardData ? (
-            <div className="space-y-6 py-4">
-              {/* Member Card Design */}
-              <div className="relative overflow-hidden rounded-2xl shadow-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white">
-                {/* Card Pattern Background */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 pr-2 custom-scrollbar">
+            <div className="space-y-4">
+              {memberCardLoading ? (
+                <div className="py-12 flex flex-col items-center justify-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-3 border-orange-600 border-t-transparent" />
+                  <p className="mt-4 text-muted-foreground text-sm">Memuat kartu member...</p>
                 </div>
-
-                <div className="relative p-6 space-y-4">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-orange-100 text-sm font-medium">KARTU MEMBER</p>
-                      <h3 className="text-2xl font-bold mt-1">AYAM GEPREK SAMBAL IJO</h3>
+              ) : memberCardData ? (
+                <>
+              {viewMode === 'card' && (
+                /* MODE CARD - Kartu Member Premium */
+                <div className="space-y-4">
+                  {/* Premium Member Card */}
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-600 via-orange-500 to-red-600 shadow-2xl border-2 border-amber-300/50 text-white">
+                    {/* Gold Border Effect */}
+                    <div className="absolute inset-0 rounded-2xl border-2 border-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 opacity-30"></div>
+                    <div className="absolute inset-1 rounded-2xl border border-white/10"></div>
+                    
+                    {/* Decorative Patterns */}
+                    <div className="absolute inset-0 opacity-5">
+                      <div className="absolute top-0 right-0 w-48 h-48 bg-white rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-yellow-300 rounded-full blur-3xl"></div>
                     </div>
-                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                      <Gift className="w-6 h-6" />
+
+                    <div className="relative p-4">
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-2 h-2 rounded-full bg-yellow-300 animate-pulse"></div>
+                            <p className="text-[10px] font-semibold tracking-widest text-yellow-200 uppercase">Premium Member</p>
+                          </div>
+                          <h3 className="text-xl font-black tracking-tight drop-shadow-lg">
+                            AYAM GEPREK
+                          </h3>
+                          <p className="text-[10px] text-yellow-200/80 mt-0.5 tracking-wide">SAMBAL IJO</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-yellow-400 to-amber-500 p-2 rounded-xl shadow-lg">
+                          <Crown className="w-5 h-5 text-amber-900" />
+                        </div>
+                      </div>
+
+                      {/* Member Info with Premium Styling */}
+                      <div className="bg-black/20 backdrop-blur-md rounded-xl p-3 mb-3 border border-white/10">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Avatar className="w-12 h-12 border-3 border-yellow-400 shadow-lg">
+                              <AvatarImage
+                                src={user?.avatar ? `${user.avatar}?t=${Date.now()}` : undefined}
+                                alt={user?.name}
+                              />
+                              <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-amber-500 text-amber-900 text-sm font-bold">
+                                {user?.name?.charAt(0).toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full border-2 border-amber-600 flex items-center justify-center">
+                              <Star className="w-2.5 h-2.5 text-amber-700 fill-current" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-yellow-100">{user?.name || 'Member'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-amber-900 text-[9px] px-2 py-0.5 font-semibold border border-yellow-300">
+                                <Award className="w-2.5 h-2.5 mr-1" />
+                                {user?.role === 'ADMIN' ? 'ADMIN' : user?.role === 'CASHIER' ? 'KASIR' : 'VIP MEMBER'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Points Section - Premium */}
+                      <div className="bg-gradient-to-r from-black/30 via-black/40 to-black/30 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] text-yellow-200/80 uppercase tracking-wider">Poin Tersedia</p>
+                            <p className="text-3xl font-black text-yellow-400 tracking-wider drop-shadow-lg">
+                              {(user as any).points || 0}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[9px] text-yellow-200/60">Rp 10.000</p>
+                            <p className="text-[9px] text-yellow-200/60">= 1 Poin</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Member Number Section */}
+                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2.5 border border-white/5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Phone className="w-3 h-3 text-yellow-200" />
+                          <p className="text-[10px] font-medium text-yellow-100">Nomor Member</p>
+                        </div>
+                        <p className="text-base font-bold text-center text-white tracking-wider bg-black/20 rounded py-1.5">
+                          {memberCardData?.memberNumber || user?.phone || '-'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <Separator className="bg-white/20" />
-
-                  {/* Member Info */}
-                  <div className="flex items-center gap-4">
-                    <Avatar className="w-16 h-16 border-3 border-white/50">
-                      <AvatarImage
-                        src={user?.avatar ? `${user.avatar}?t=${Date.now()}` : undefined}
-                        alt={user?.name}
-                      />
-                      <AvatarFallback className="bg-white/30 text-white text-xl font-bold">
-                        {user?.name?.charAt(0).toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-lg font-semibold">{user?.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          className={
-                            user?.role === 'ADMIN'
-                              ? 'bg-purple-500'
-                              : user?.role === 'CASHIER'
-                              ? 'bg-blue-500'
-                              : 'bg-yellow-500 text-black'
-                          }
-                        >
-                          {user?.role === 'ADMIN' ? 'ADMIN' : user?.role === 'CASHIER' ? 'KASIR' : 'MEMBER'}
-                        </Badge>
+                    {/* Card Footer */}
+                    <div className="bg-black/30 px-4 py-2 border-t border-white/10">
+                      <div className="flex items-center justify-between text-[9px] text-yellow-200/70">
+                        <span>Member ID: {user?.id?.slice(-8).toUpperCase() || 'N/A'}</span>
+                        <span>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: '2-digit'}) : 'N/A'}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Points */}
-                  <div className="bg-white/20 rounded-xl p-4 backdrop-blur-sm">
-                    <p className="text-orange-100 text-sm">Poin Tersedia</p>
-                    <p className="text-3xl font-bold mt-1">{(user as any).points || 0} Poin</p>
-                    <p className="text-orange-100 text-xs mt-1">Setiap Rp 10.000 = 1 poin</p>
-                  </div>
-
-                  {/* Barcode */}
-                  <div className="bg-white rounded-xl p-4">
-                    <div className="flex justify-center">
-                      <svg ref={barcodeRef} className="w-full" />
+                  {/* QR Code Card - Separate */}
+                  <div className="bg-white rounded-2xl p-4 shadow-xl border-2 border-amber-200">
+                    <div className="text-center">
+                      <div className="inline-flex items-center gap-2 mb-3 px-3 py-1.5 bg-gradient-to-r from-amber-100 to-orange-100 rounded-full">
+                        <QrCode className="w-4 h-4 text-amber-600" />
+                        <span className="text-xs font-bold text-amber-700">SCAN QR CODE</span>
+                      </div>
+                      <div className="bg-gradient-to-br from-gray-50 to-amber-50 p-4 rounded-xl border-2 border-dashed border-amber-300">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memberCardData?.qrData || '')}`}
+                          alt="Member QR Code"
+                          className="w-32 h-32 mx-auto"
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">Gunakan QR ini untuk mengumpulkan poin</p>
                     </div>
                   </div>
 
-                  {/* QR Code */}
-                  <div className="flex justify-center">
-                    <div className="bg-white p-3 rounded-xl shadow-lg">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memberCardData.qrData)}`}
-                        alt="Member QR Code"
-                        className="w-32 h-32"
-                      />
+                  {/* Barcode Card - Separate */}
+                  <div className="bg-white rounded-2xl p-4 shadow-xl border-2 border-amber-200">
+                    <div className="text-center">
+                      <div className="inline-flex items-center gap-2 mb-3 px-3 py-1.5 bg-gradient-to-r from-amber-100 to-orange-100 rounded-full">
+                        <ScanLine className="w-4 h-4 text-amber-600" />
+                        <span className="text-xs font-bold text-amber-700">SCAN BARCODE</span>
+                      </div>
+                      <div className="bg-gradient-to-br from-gray-50 to-amber-50 p-4 rounded-xl border-2 border-dashed border-amber-300">
+                        <svg ref={barcodeRef} className="w-full h-12" />
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">Nomor HP: {memberCardData?.memberNumber || user?.phone || '-'}</p>
                     </div>
                   </div>
 
-                  {/* Footer */}
-                  <div className="flex items-center justify-between text-xs text-orange-100">
-                    <p>Terdaftar: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID') : 'N/A'}</p>
-                    <p>{user?.email}</p>
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 gap-1.5 text-[10px] h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+                      onClick={() => {
+                        if (memberCardData?.memberNumber) {
+                          navigator.clipboard.writeText(memberCardData.memberNumber)
+                          toast({
+                            title: 'Berhasil',
+                            description: 'Nomor HP disalin ke clipboard',
+                          })
+                        }
+                      }}
+                    >
+                      <Copy className="w-3 h-3" />
+                      Salin No. HP
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 gap-1.5 text-[10px] h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+                      onClick={handleOpenMemberCard}
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Refresh
+                    </Button>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  onClick={() => {
-                    if (memberCardData?.memberNumber) {
-                      navigator.clipboard.writeText(memberCardData.memberNumber)
-                      toast({
-                        title: 'Berhasil',
-                        description: 'Nomor member disalin ke clipboard',
-                      })
-                    }
-                  }}
-                >
-                  <Copy className="w-4 h-4" />
-                  Salin No. Member
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  onClick={handleOpenMemberCard}
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
-                </Button>
-              </div>
+              {viewMode === 'barcode' && (
+                /* MODE BARCODE - Barcode Besar */
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="bg-white p-6 rounded-2xl shadow-xl mx-auto max-w-full">
+                      <svg ref={barcodeRef} className="w-full h-24" />
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs font-semibold text-orange-600">Scan Barcode ini</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {memberCardData?.memberNumber || user?.phone || '-'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <ScanLine className="w-3 h-3 text-orange-600" />
+                      <p className="text-xs font-medium text-orange-600">Nomor Member</p>
+                    </div>
+                    <p className="text-lg font-bold text-center text-orange-700 tracking-wider">
+                      {memberCardData?.memberNumber || user?.phone || '-'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {viewMode === 'qr' && (
+                /* MODE QR - QR Code Besar */
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="bg-white p-6 rounded-2xl shadow-xl mx-auto max-w-full">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(memberCardData?.qrData || '')}`}
+                        alt="Member QR Code - Scan Mode"
+                        className="w-56 h-56"
+                      />
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs font-semibold text-orange-600">Scan QR Code ini</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {memberCardData?.memberNumber || user?.phone || '-'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <ScanLine className="w-3 h-3 text-orange-600" />
+                      <p className="text-xs font-medium text-orange-600">Nomor Member</p>
+                    </div>
+                    <p className="text-lg font-bold text-center text-orange-700 tracking-wider">
+                      {memberCardData?.memberNumber || user?.phone || '-'}
+                    </p>
+                  </div>
+                </div>
+              )}
+              </>
+              ) : null}
             </div>
-          ) : null}
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 pt-3">
             <Button onClick={() => setMemberCardOpen(false)}>
               Tutup
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cart Sheet */}
+      {/* Cart Dialog - Center Popup */}
+      <Dialog open={cartOpen} onOpenChange={setCartOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <ShoppingCart className="w-6 h-6 text-orange-600" />
+              Keranjang Belanja
+            </DialogTitle>
+          </DialogHeader>
+
+          {items.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-12">
+              <ShoppingCart className="w-16 h-16 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-lg">Keranjang kosong</p>
+              <p className="text-sm text-muted-foreground mt-2">Tambahkan menu favorit Anda</p>
+            </div>
+          ) : (
+            <>
+              {/* Cart Items */}
+              <div className="flex-1 overflow-y-auto py-4 space-y-4 custom-scrollbar">
+                {items.map((item) => (
+                  <div key={item.productId} className="flex gap-3 p-3 bg-orange-50 rounded-lg">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white">
+                      <img
+                        src={item.productImage || 'https://images.unsplash.com/photo-1606787620819-8bdf0c44c293?w=100&h=100&fit=crop'}
+                        alt={item.productName}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm truncate">{item.productName}</h4>
+                      <p className="text-xs text-muted-foreground mb-2">{item.category || 'Menu'}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-orange-600">{formatPrice(item.price)}</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-muted-foreground">Subtotal</span>
+                        <span className="font-semibold text-sm">{formatPrice(item.price * item.quantity)}</span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                      onClick={() => remove(item.productId)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cart Footer */}
+              <div className="border-t pt-4 space-y-3 shrink-0">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">{formatPrice(subtotal)}</span>
+                  </div>
+                  {member && member.points > 0 && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="usePoints"
+                          checked={usePoints}
+                          onChange={(e) => setUsePoints(e.target.checked)}
+                          className="w-4 h-4 accent-orange-600"
+                        />
+                        <label htmlFor="usePoints" className="text-muted-foreground cursor-pointer">
+                          Gunakan {Math.floor(subtotal / 100)} poin
+                        </label>
+                      </div>
+                      <span className="text-green-600 font-medium">-{formatPrice(discountAmount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span className="text-orange-600">{formatPrice(finalTotal)}</span>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setCheckoutOpen(true)
+                    setCartOpen(false)
+                  }}
+                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                  size="lg"
+                >
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Checkout
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => clear()}
+                  className="w-full"
+                >
+                  Kosongkan Keranjang
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout Dialog - Center Popup */}
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Receipt className="w-6 h-6 text-orange-600" />
+              Checkout Pesanan
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-4 space-y-6 custom-scrollbar">
+            {/* Customer Info Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <User className="w-4 h-4 text-orange-600" />
+                </div>
+                <h3 className="font-semibold">Informasi Pelanggan</h3>
+              </div>
+              <div className="space-y-3 pl-10">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block flex items-center gap-1">
+                    Nama Lengkap <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="Masukkan nama lengkap"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className={"border-orange-200 focus-visible:ring-orange-500"}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block flex items-center gap-1">
+                    Nomor Telepon <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="08xxxxxxxxxx"
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="border-orange-200 focus-visible:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Alamat</label>
+                  <textarea
+                    placeholder="Alamat lengkap pengiriman"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    rows={2}
+                    className="flex min-h-[60px] w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Order Items Section - Scrollable */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4 text-orange-600" />
+                </div>
+                <h3 className="font-semibold">Item Pesanan ({items.length})</h3>
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pl-10 pr-2">
+                {items.map((item) => (
+                  <div key={item.productId} className="flex gap-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white">
+                      <img
+                        src={item.productImage || 'https://images.unsplash.com/photo-1606787620819-8bdf0c44c293?w=100&h=100&fit=crop'}
+                        alt={item.productName}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm truncate">{item.productName}</h4>
+                      <p className="text-xs text-muted-foreground mb-1">{item.category || 'Menu'}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">x{item.quantity}</span>
+                        <span className="font-bold text-orange-600 text-sm">{formatPrice(item.price * item.quantity)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Payment Method Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 text-orange-600" />
+                </div>
+                <h3 className="font-semibold">Metode Pembayaran</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pl-10">
+                <Button
+                  type="button"
+                  variant={paymentMethod === 'CASH' ? 'default' : 'outline'}
+                  onClick={() => setPaymentMethod('CASH')}
+                  className={
+                    paymentMethod === 'CASH'
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                      : 'border-orange-200 hover:bg-orange-50'
+                  }
+                >
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Tunai
+                </Button>
+                <Button
+                  type="button"
+                  variant={paymentMethod === 'QRIS' ? 'default' : 'outline'}
+                  onClick={() => setPaymentMethod('QRIS')}
+                  className={
+                    paymentMethod === 'QRIS'
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                      : 'border-orange-200 hover:bg-orange-50'
+                  }
+                >
+                  <QrCode className="w-4 h-4 mr-2" />
+                  QRIS
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Order Summary Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Calculator className="w-4 h-4 text-orange-600" />
+                </div>
+                <h3 className="font-semibold">Ringkasan Pembayaran</h3>
+              </div>
+              <div className="space-y-2 bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200 pl-10">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">{formatPrice(subtotal)}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600 text-sm">
+                    <span>Diskon Poin ({pointsUsed} poin)</span>
+                    <span className="font-medium">-{formatPrice(discountAmount)}</span>
+                  </div>
+                )}
+                <Separator className="my-2 bg-orange-200" />
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Total Bayar</span>
+                  <span className="text-orange-600">{formatPrice(finalTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Action Buttons */}
+          <div className="border-t pt-4 space-y-3 shrink-0">
+            <Button
+              onClick={handleCheckout}
+              disabled={checkoutLoading || !customerName || !customerPhone}
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-6 text-lg"
+              size="lg"
+            >
+              {checkoutLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Memproses Pesanan...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Konfirmasi Pesanan • {formatPrice(finalTotal)}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setCheckoutOpen(false)}
+              disabled={checkoutLoading}
+              className="w-full"
+            >
+              Kembali ke Keranjang
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

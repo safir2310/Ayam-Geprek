@@ -1,0 +1,1546 @@
+'use client'
+
+// Main page component with customer view, navigation, and member card features
+import { useState, useEffect, useRef } from 'react'
+import { Menu, ShoppingCart, Phone, MapPin, Store, LayoutDashboard, LogIn, User, CreditCard, Loader2, CheckCircle, XCircle, Gift, Home, UserCheck, ChefHat, History, Package, LogOut, QrCode, Settings, Bell, BellRing, X, ChevronRight, Clock, IdCard, RefreshCw, Copy, Plus, Minus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Separator } from '@/components/ui/separator'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useUIStore } from '@/stores/ui-store'
+import { useAuthStore } from '@/stores/auth-store'
+import { useNotificationStore } from '@/stores/notification-store'
+import { toast } from '@/hooks/use-toast'
+import JsBarcode from 'jsbarcode'
+import LoginPage from '@/components/auth/LoginPage'
+import AdminDashboard from '@/components/admin/AdminDashboard'
+import POSInterface from '@/components/pos/POSInterface'
+import ProfilePage from '@/components/profile/ProfilePage'
+
+// Restaurant Info
+const RESTAURANT_INFO = {
+  name: 'AYAM GEPREK SAMBAL IJO',
+  address: 'Jl. Medan – Banda Aceh, Simpang Camat, Gampong Tijue, 24151',
+  phone: '085260812758',
+}
+
+// Types
+type Category = {
+  id: string
+  name: string
+  icon?: string | null
+  color?: string | null
+  isActive: boolean
+  order: number
+  productCount?: number
+}
+
+type Product = {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  image: string | null
+  categoryId: string
+  category?: {
+    id: string
+    name: string
+    icon?: string | null
+  }
+  stock: number
+  isActive: boolean
+}
+
+type Member = {
+  id: string
+  name: string
+  phone: string
+  email?: string | null
+  address?: string | null
+  points: number
+  tier: string
+  isActive: boolean
+}
+
+type Order = {
+  id: string
+  orderNumber: string
+  customerName: string
+  customerPhone: string
+  customerAddress: string
+  totalAmount: number
+  paymentMethod: string
+  status: string
+  pointsUsed: number
+  pointsEarned: number
+  createdAt: Date
+  items: any[]
+}
+
+// API functions
+async function fetchCategories(): Promise<Category[]> {
+  try {
+    const response = await fetch('/api/categories?includeProductCount=true')
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to fetch categories')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      return data.data
+    }
+    throw new Error(data.error || 'Failed to fetch categories')
+  } catch (error) {
+    console.error('Error fetching categories:', error)
+    throw error
+  }
+}
+
+async function fetchProducts(): Promise<Product[]> {
+  try {
+    const response = await fetch('/api/products?status=active')
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to fetch products')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      return data.data
+    }
+    throw new Error(data.error || 'Failed to fetch products')
+  } catch (error) {
+    console.error('Error fetching products:', error)
+    throw error
+  }
+}
+
+async function lookupMemberByPhone(phone: string): Promise<Member | null> {
+  try {
+    const response = await fetch(`/api/members/phone/${encodeURIComponent(phone)}`)
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to look up member')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success && data.data) {
+      return data.data
+    }
+    return null
+  } catch (error) {
+    console.error('Error looking up member:', error)
+    return null
+  }
+}
+
+async function registerMember(memberData: { name: string; phone: string; email?: string; address?: string }): Promise<Member> {
+  try {
+    const response = await fetch('/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(memberData)
+    })
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to register member')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      return data.data
+    }
+    throw new Error(data.error || 'Failed to register member')
+  } catch (error) {
+    console.error('Error registering member:', error)
+    throw error
+  }
+}
+
+async function createOrder(orderData: any): Promise<Order> {
+  try {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+    })
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to create order')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      return data.data
+    }
+    throw new Error(data.error || 'Failed to create order')
+  } catch (error) {
+    console.error('Error creating order:', error)
+    throw error
+  }
+}
+
+async function fetchCustomerOrders(phone: string): Promise<Order[]> {
+  try {
+    const response = await fetch(`/api/orders/customer/${encodeURIComponent(phone)}`)
+    
+    // 404 is acceptable for no orders
+    if (response.status === 404) {
+      return []
+    }
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to fetch orders')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      return data.data || []
+    }
+    throw new Error(data.error || 'Failed to fetch orders')
+  } catch (error) {
+    console.error('Error fetching orders:', error)
+    throw error
+  }
+}
+
+// Default fallback categories
+const DEFAULT_CATEGORIES = [
+  { id: 'all', name: 'Semua', icon: '🍽️', isActive: true, order: 0 },
+]
+
+
+function CustomerView() {
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [mounted, setMounted] = useState(false)
+  const { currentView, setCurrentView } = useUIStore()
+  const { isAuthenticated, user, logout } = useAuthStore()
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    removeNotification 
+  } = useNotificationStore()
+
+  // Data states
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Active tab state
+  const [activeTab, setActiveTab] = useState('menu')
+
+  // Orders states
+  const [orders, setOrders] = useState<Order[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState<string | null>(null)
+
+  // Handle client-side mounting
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Member states
+  const [showMemberSection, setShowMemberSection] = useState(false)
+  const [memberPhone, setMemberPhone] = useState('')
+  const [member, setMember] = useState<Member | null>(null)
+  const [memberLoading, setMemberLoading] = useState(false)
+  const [showRegisterForm, setShowRegisterForm] = useState(false)
+  const [newMemberName, setNewMemberName] = useState('')
+  const [newMemberEmail, setNewMemberEmail] = useState('')
+  const [newMemberAddress, setNewMemberAddress] = useState('')
+
+  // Member Card states
+  const [memberCardOpen, setMemberCardOpen] = useState(false)
+  const [memberCardLoading, setMemberCardLoading] = useState(false)
+  const [memberCardData, setMemberCardData] = useState<{ qrData: string; memberNumber: string } | null>(null)
+  const barcodeRef = useRef<SVGSVGElement>(null)
+
+  // Load data on mount
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true)
+      setError(null)
+      try {
+        const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts()])
+        setCategories([...DEFAULT_CATEGORIES, ...cats])
+        setProducts(prods)
+      } catch (err) {
+        setError('Gagal memuat data. Silakan coba lagi.')
+        toast({
+          title: 'Error',
+          description: 'Gagal memuat data menu',
+          variant: 'destructive'
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  // Load orders when tab changes to orders and user is authenticated
+  useEffect(() => {
+    async function loadOrders() {
+      if (activeTab === 'orders' && isAuthenticated && user?.phone) {
+        setOrdersLoading(true)
+        setOrdersError(null)
+        try {
+          const customerOrders = await fetchCustomerOrders(user.phone)
+          setOrders(customerOrders)
+        } catch (err) {
+          setOrdersError('Gagal memuat riwayat pesanan')
+          toast({
+            title: 'Error',
+            description: 'Gagal memuat riwayat pesanan',
+            variant: 'destructive'
+          })
+        } finally {
+          setOrdersLoading(false)
+        }
+      }
+    }
+    loadOrders()
+  }, [activeTab, isAuthenticated, user?.phone])
+
+  // Filter products
+  const filteredProducts = products.filter((product) => {
+    const matchesCategory = activeCategory === 'all' || product.categoryId === activeCategory
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStock = product.stock > 0 || !product.isActive
+    return matchesCategory && matchesSearch && matchesStock
+  })
+
+  // Member lookup handler
+  const handleMemberLookup = async () => {
+    if (!memberPhone || memberPhone.length < 10) {
+      toast({
+        title: 'Error',
+        description: 'Masukkan nomor telepon yang valid',
+        variant: 'destructive'
+      })
+      return
+    }
+    
+    setMemberLoading(true)
+    try {
+      const foundMember = await lookupMemberByPhone(memberPhone)
+      if (foundMember) {
+        setMember(foundMember)
+        // Auto-fill customer address with member address
+        if (foundMember.address) {
+          setCustomerAddress(foundMember.address)
+        }
+        setShowRegisterForm(false)
+        toast({
+          title: 'Member Ditemukan',
+          description: `Halo, ${foundMember.name}! Anda punya ${foundMember.points} poin`,
+        })
+      } else {
+        setShowRegisterForm(true)
+        setMember(null)
+        toast({
+          title: 'Member Tidak Ditemukan',
+          description: 'Nomor ini belum terdaftar. Silakan daftar sebagai member.',
+        })
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Gagal mencari member',
+        variant: 'destructive'
+      })
+    } finally {
+      setMemberLoading(false)
+    }
+  }
+  
+  // Member registration handler
+  const handleMemberRegister = async () => {
+    if (!newMemberName || !memberPhone) {
+      toast({
+        title: 'Error',
+        description: 'Nama dan nomor telepon wajib diisi',
+        variant: 'destructive'
+      })
+      return
+    }
+    
+    setMemberLoading(true)
+    try {
+      const registeredMember = await registerMember({
+        name: newMemberName,
+        phone: memberPhone,
+        email: newMemberEmail || undefined,
+        address: newMemberAddress || undefined
+      })
+      setMember(registeredMember)
+      setShowRegisterForm(false)
+      toast({
+        title: 'Pendaftaran Berhasil',
+        description: `Selamat bergabung, ${registeredMember.name}!`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'Gagal mendaftarkan member',
+        variant: 'destructive'
+      })
+    } finally {
+      setMemberLoading(false)
+    }
+  }
+
+  // Member Card handler
+  const handleOpenMemberCard = async () => {
+    if (!isAuthenticated || !user?.id) {
+      toast({
+        title: 'Login Diperlukan',
+        description: 'Silakan login untuk melihat kartu member',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setMemberCardLoading(true)
+    try {
+      // Use query parameter instead of dynamic route
+      const response = await fetch(`/api/members/qr?memberId=${encodeURIComponent(user.id)}`)
+      const data = await response.json()
+
+      if (data.success) {
+        const memberNumber = user.phone || `MBR-${user.id.slice(-8).toUpperCase()}`
+        setMemberCardData({
+          qrData: data.data.qrData,
+          memberNumber: memberNumber
+        })
+        setMemberCardOpen(true)
+
+        // Generate barcode after dialog opens
+        setTimeout(() => {
+          if (barcodeRef.current) {
+            JsBarcode(barcodeRef.current, memberNumber, {
+              format: 'CODE128',
+              width: 2,
+              height: 50,
+              displayValue: true,
+              fontSize: 14,
+              margin: 10,
+              background: '#ffffff',
+              lineColor: '#000000',
+            })
+          }
+        }, 100)
+      } else {
+        toast({
+          title: 'Gagal',
+          description: data.error || 'Gagal membuat kartu member',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Error generating member card:', error)
+      toast({
+        title: 'Gagal',
+        description: 'Gagal membuat kartu member',
+        variant: 'destructive',
+      })
+    } finally {
+      setMemberCardLoading(false)
+    }
+  }
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(price)
+  }
+  
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+    
+    if (diffMins < 1) return 'Baru saja'
+    if (diffMins < 60) return `${diffMins} menit lalu`
+    if (diffHours < 24) return `${diffHours} jam lalu`
+    if (diffDays < 7) return `${diffDays} hari lalu`
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex flex-col">
+        {/* Header - Skeleton during SSR */}
+        <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-orange-100">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-2 rounded-xl">
+                  <Store className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+                    {RESTAURANT_INFO.name}
+                  </h1>
+                  <p className="text-xs text-muted-foreground">🍗 Lezat • Pedas • Nikmat</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="border-orange-500 text-orange-600">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Hero Section */}
+        <section className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white py-12 md:py-16">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">
+              🍗 AYAM GEPREK SAMBAL IJO
+            </h2>
+            <p className="text-lg md:text-xl opacity-90 mb-6">
+              Pedasnya Nampol, Rasanya Juara!
+            </p>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex flex-col" suppressHydrationWarning>
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-orange-100" suppressHydrationWarning>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-2 rounded-xl">
+                <Store className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+                  {RESTAURANT_INFO.name}
+                </h1>
+                <p className="text-xs text-muted-foreground">🍗 Lezat • Pedas • Nikmat</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Profile Photo in Header */}
+              {isAuthenticated && user && (
+                <div className="flex items-center gap-3">
+                  {/* Notification Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="relative h-9 w-9 p-0 rounded-full"
+                      >
+                        <BellRing className="w-5 h-5" />
+                        {unreadCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </Badge>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-80">
+                      <div className="p-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-sm">Notifikasi</h3>
+                          {unreadCount > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7 px-2"
+                              onClick={markAllAsRead}
+                            >
+                              Tandai semua terbaca
+                            </Button>
+                          )}
+                        </div>
+                        <Separator />
+                        {notifications.length === 0 ? (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Tidak ada notifikasi
+                          </div>
+                        ) : (
+                          <div className="max-h-80 overflow-y-auto">
+                            {notifications.slice(0, 10).map((notification) => (
+                              <DropdownMenuItem
+                                key={notification.id}
+                                className={`p-3 cursor-pointer transition-colors ${
+                                  notification.read ? 'bg-transparent' : 'bg-orange-50'
+                                }`}
+                                onClick={() => markAsRead(notification.id)}
+                              >
+                                <div className="flex gap-3">
+                                  <div className={`w-2 h-2 mt-1.5 rounded-full ${
+                                    notification.read ? 'bg-gray-300' : 'bg-orange-500'
+                                  }`} />
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{notification.title}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                      {notification.message}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      <Clock className="w-3 h-3 inline mr-1" />
+                                      {getTimeAgo(notification.time)}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      removeNotification(notification.id)
+                                    }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                          </div>
+                        )}
+                        {notifications.length > 0 && (
+                          <>
+                            <Separator />
+                            <DropdownMenuItem
+                              className="text-center text-sm text-orange-600 hover:text-orange-700 cursor-pointer"
+                              onClick={() => setCurrentView('profile')}
+                            >
+                              Lihat Semua di Profil
+                              <ChevronRight className="w-4 h-4 ml-auto" />
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Profile Avatar */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentView('profile')}
+                    className="flex items-center gap-2 h-auto py-1 px-2 rounded-full hover:bg-orange-50"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        user.name?.charAt(0).toUpperCase() || 'U'
+                      )}
+                    </div>
+                    <span className="text-sm font-medium hidden sm:inline">
+                      {user.name?.split(' ')[0] || 'User'}
+                    </span>
+                  </Button>
+                </div>
+              )}
+
+              {/* Admin Button - Only for admin users */}
+              {isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentView('admin')}
+                  className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                >
+                  <LayoutDashboard className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Admin</span>
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white py-12 md:py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-5xl font-bold mb-4">
+            🍗 AYAM GEPREK SAMBAL IJO
+          </h2>
+          <p className="text-lg md:text-xl opacity-90 mb-6">
+            Pedasnya Nampol, Rasanya Juara!
+          </p>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8 flex-1">
+        {activeTab === 'menu' && (
+          <div className="space-y-6">
+            {/* Search and Filter */}
+            <div className="space-y-4">
+              <Input
+                placeholder="Cari menu favorit Anda..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-md"
+              />
+
+              {/* Category Pills */}
+              <div className="flex flex-wrap gap-2">
+                {loading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Memuat kategori...</span>
+                  </div>
+                ) : (
+                  categories.map((category) => (
+                    <Button
+                      key={category.id}
+                      variant={activeCategory === category.id ? 'default' : 'outline'}
+                      onClick={() => setActiveCategory(category.id)}
+                      className={
+                        activeCategory === category.id
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                          : ''
+                      }
+                    >
+                      <span className="mr-2">{category.icon || '📦'}</span>
+                      {category.name}
+                    </Button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Product Grid */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
+                <p className="text-muted-foreground">Memuat menu...</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <XCircle className="w-12 h-12 text-red-500 mb-4" />
+                <p className="text-red-500 mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()}>
+                  Coba Lagi
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <Card
+                    key={product.id}
+                    className={`overflow-hidden hover:shadow-lg transition-shadow border-orange-100 ${product.stock === 0 ? 'opacity-50' : ''}`}
+                  >
+                    <div className="relative h-48 overflow-hidden bg-orange-50">
+                      <img
+                        src={product.image || 'https://images.unsplash.com/photo-1606787620819-8bdf0c44c293?w=400&h=300&fit=crop'}
+                        alt={product.name}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      />
+                      <Badge className="absolute top-2 right-2 bg-orange-500">
+                        {product.category?.name || 'Menu'}
+                      </Badge>
+                      {product.stock === 0 && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Badge variant="destructive">Stok Habis</Badge>
+                        </div>
+                      )}
+                    </div>
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {product.description || 'Lezat dan nikmat'}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xl font-bold text-orange-600">
+                          {formatPrice(product.price)}
+                        </span>
+                        <Button
+                          size="sm"
+                          onClick={() => window.location.href = `https://wa.me/6285260812758?text=Saya%20ingin%20pesan%20${encodeURIComponent(product.name)}%20-%20${encodeURIComponent(product.price)}`}
+                          className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                        >
+                          <ShoppingBag className="w-4 h-4 mr-2" />
+                          Pesan Online
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {!loading && !error && filteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground text-lg">Tidak ada menu yang ditemukan</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="space-y-6">
+            {!isAuthenticated ? (
+              <Card className="bg-orange-50 border-orange-200">
+                <CardContent className="p-8 text-center">
+                  <UserCheck className="w-16 h-16 mx-auto text-orange-500 mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Login untuk Melihat Riwayat Pesanan</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Silakan login untuk melihat riwayat pesanan Anda
+                  </p>
+                  <Button
+                    onClick={() => setCurrentView('login')}
+                    className="bg-gradient-to-r from-orange-500 to-orange-600"
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login Sekarang
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : ordersLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
+                <p className="text-muted-foreground">Memuat riwayat pesanan...</p>
+              </div>
+            ) : ordersError ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <XCircle className="w-12 h-12 text-red-500 mb-4" />
+                <p className="text-red-500 mb-4">{ordersError}</p>
+                <Button onClick={() => window.location.reload()}>
+                  Coba Lagi
+                </Button>
+              </div>
+            ) : orders.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <History className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Belum Ada Pesanan</h3>
+                  <p className="text-muted-foreground">
+                    Anda belum memiliki riwayat pesanan. Mulai pesanan sekarang!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {orders.map((order) => (
+                  <Card key={order.id} className="border-orange-100 hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-semibold text-lg">{order.orderNumber}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(order.createdAt).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                        <Badge
+                          className={
+                            order.status === 'COMPLETED'
+                              ? 'bg-green-500'
+                              : order.status === 'PROCESSING'
+                              ? 'bg-orange-500'
+                              : order.status === 'CANCELLED'
+                              ? 'bg-red-500'
+                              : 'bg-gray-500'
+                          }
+                        >
+                          {order.status === 'COMPLETED'
+                            ? 'Selesai'
+                            : order.status === 'PROCESSING'
+                            ? 'Diproses'
+                            : order.status === 'CANCELLED'
+                            ? 'Dibatalkan'
+                            : order.status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                        {order.items?.map((item: any, index: number) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span>{item.productName} x{item.quantity}</span>
+                            <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="border-t pt-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Metode Pembayaran</span>
+                          <span className="font-medium">
+                            {order.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}
+                          </span>
+                        </div>
+                        {order.pointsUsed > 0 && (
+                          <div className="flex justify-between text-sm text-green-600">
+                            <span>Poin Digunakan</span>
+                            <span>-{order.pointsUsed} poin</span>
+                          </div>
+                        )}
+                        {order.pointsEarned > 0 && (
+                          <div className="flex justify-between text-sm text-orange-600">
+                            <span>Poin Didapat</span>
+                            <span>+{order.pointsEarned} poin</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                          <span>Total</span>
+                          <span className="text-orange-600">{formatPrice(order.totalAmount)}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Checkout Sheet */}
+      <Sheet open={checkoutOpen} onOpenChange={(open) => {
+        setCheckoutOpen(open)
+        if (!open) resetCheckoutForm()
+      }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Checkout Pesanan</SheetTitle>
+          </SheetHeader>
+          
+          {orderSuccess && createdOrder ? (
+            <div className="mt-6 space-y-4">
+              <div className="text-center py-8">
+                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-green-600 mb-2">Pesanan Berhasil!</h3>
+                <p className="text-muted-foreground mb-4">
+                  Pesanan Anda telah dibuat dan sedang diproses
+                </p>
+                <Card className="bg-orange-50 border-orange-200">
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">No. Pesanan:</span>
+                        <span className="font-semibold">{createdOrder.orderNumber}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nama:</span>
+                        <span className="font-semibold">{createdOrder.customerName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className="font-semibold text-orange-600">{formatPrice(createdOrder.totalAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pembayaran:</span>
+                        <span className="font-semibold">{createdOrder.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}</span>
+                      </div>
+                      {member && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Poin:</span>
+                          <span className="font-semibold">+{createdOrder.pointsEarned}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Button
+                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600"
+                  onClick={() => {
+                    setOrderSuccess(false)
+                    setCreatedOrder(null)
+                    setCheckoutOpen(false)
+                  }}
+                >
+                  Tutup
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-6">
+              {/* Order Summary */}
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4" />
+                    Ringkasan Pesanan
+                  </h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {items.map((item) => (
+                      <div key={item.productId} className="flex justify-between text-sm">
+                        <span>{item.productName} x{item.quantity}</span>
+                        <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t mt-3 pt-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal</span>
+                      <span>{formatPrice(subtotal)}</span>
+                    </div>
+                    {redeemPoints && pointsToRedeem > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Diskon Poin</span>
+                        <span>-{formatPrice(pointsDiscount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                      <span>Total</span>
+                      <span className="text-orange-600">{formatPrice(totalAmount)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Customer Information */}
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Informasi Pelanggan
+                </h3>
+                <div className="grid gap-3">
+                  <div>
+                    <Label htmlFor="customerName">Nama Lengkap *</Label>
+                    <Input
+                      id="customerName"
+                      value={customerName || (member?.name || '')}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Masukkan nama lengkap"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="customerPhone">Nomor Telepon *</Label>
+                    <Input
+                      id="customerPhone"
+                      value={customerPhone || (member?.phone || '')}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Contoh: 085260812758"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="customerAddress">Alamat Pengiriman *</Label>
+                    <textarea
+                      id="customerAddress"
+                      value={customerAddress || (member?.address || '')}
+                      onChange={(e) => setCustomerAddress(e.target.value)}
+                      placeholder="Masukkan alamat lengkap pengiriman"
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Member Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Gift className="w-4 h-4" />
+                    Member
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowMemberSection(!showMemberSection)}
+                  >
+                    {showMemberSection ? 'Tutup' : 'Cari Member'}
+                  </Button>
+                </div>
+                
+                {showMemberSection && (
+                  <Card className="bg-orange-50 border-orange-200">
+                    <CardContent className="p-4 space-y-3">
+                      {member ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold">{member.name}</p>
+                              <p className="text-sm text-muted-foreground">{member.phone}</p>
+                            </div>
+                            <Badge className={
+                              member.tier === 'PLATINUM' ? 'bg-purple-500' :
+                              member.tier === 'GOLD' ? 'bg-yellow-500' :
+                              member.tier === 'SILVER' ? 'bg-gray-500' :
+                              'bg-orange-500'
+                            }>
+                              {member.tier}
+                            </Badge>
+                          </div>
+                          <div className="bg-white p-2 rounded-lg">
+                            <p className="text-sm font-semibold text-orange-600">
+                              {member.points} Poin Tersedia
+                            </p>
+                          </div>
+                          {member.points > 0 && maxRedeemablePoints > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id="redeemPoints"
+                                  checked={redeemPoints}
+                                  onChange={(e) => {
+                                    setRedeemPoints(e.target.checked)
+                                    if (e.target.checked) {
+                                      setPointsToRedeem(maxRedeemablePoints)
+                                    } else {
+                                      setPointsToRedeem(0)
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <Label htmlFor="redeemPoints" className="text-sm cursor-pointer">
+                                  Tukarkan Poin
+                                </Label>
+                              </div>
+                              {redeemPoints && (
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor="pointsToRedeem" className="text-sm">Poin:</Label>
+                                  <Input
+                                    id="pointsToRedeem"
+                                    type="number"
+                                    min="0"
+                                    max={maxRedeemablePoints}
+                                    value={pointsToRedeem}
+                                    onChange={(e) => setPointsToRedeem(Math.min(maxRedeemablePoints, Math.max(0, parseInt(e.target.value) || 0)))}
+                                    className="w-24"
+                                  />
+                                  <span className="text-sm text-muted-foreground">
+                                    / {maxRedeemablePoints} (Max)
+                                  </span>
+                                </div>
+                              )}
+                              {redeemPoints && pointsToRedeem > 0 && (
+                                <p className="text-sm text-green-600 font-medium">
+                                  Diskon: {formatPrice(pointsDiscount)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setMember(null)
+                              setMemberPhone('')
+                              setPointsToRedeem(0)
+                              setRedeemPoints(false)
+                            }}
+                          >
+                            Ganti Member
+                          </Button>
+                        </div>
+                      ) : showRegisterForm ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">Daftar Member Baru</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowRegisterForm(false)}
+                            >
+                              Batal
+                            </Button>
+                          </div>
+                          <Input
+                            placeholder="Nama Lengkap *"
+                            value={newMemberName}
+                            onChange={(e) => setNewMemberName(e.target.value)}
+                          />
+                          <Input
+                            placeholder="Email (opsional)"
+                            value={newMemberEmail}
+                            onChange={(e) => setNewMemberEmail(e.target.value)}
+                          />
+                          <Input
+                            placeholder="Alamat (opsional)"
+                            value={newMemberAddress}
+                            onChange={(e) => setNewMemberAddress(e.target.value)}
+                          />
+                          <Button
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600"
+                            onClick={handleMemberRegister}
+                            disabled={memberLoading}
+                          >
+                            {memberLoading ? (
+                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mendaftar...</>
+                            ) : 'Daftar Sekarang'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Punya nomor member? Masukkan untuk dapatkan poin!
+                          </p>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Nomor Telepon Member"
+                              value={memberPhone}
+                              onChange={(e) => setMemberPhone(e.target.value)}
+                            />
+                            <Button
+                              onClick={handleMemberLookup}
+                              disabled={memberLoading}
+                              className="bg-gradient-to-r from-orange-500 to-orange-600"
+                            >
+                              {memberLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                'Cari'
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Metode Pembayaran
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant={paymentMethod === 'CASH' ? 'default' : 'outline'}
+                    className={
+                      paymentMethod === 'CASH'
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600'
+                        : ''
+                    }
+                    onClick={() => setPaymentMethod('CASH')}
+                  >
+                    💵 Tunai
+                  </Button>
+                  <Button
+                    variant={paymentMethod === 'QRIS_CPM' ? 'default' : 'outline'}
+                    className={
+                      paymentMethod === 'QRIS_CPM'
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600'
+                        : ''
+                    }
+                    onClick={() => setPaymentMethod('QRIS_CPM')}
+                  >
+                    📱 QRIS CPM
+                  </Button>
+                </div>
+              </div>
+
+              {/* Order Notes */}
+              <div className="space-y-3">
+                <Label htmlFor="orderNotes">Catatan Pesanan (Opsional)</Label>
+                <textarea
+                  id="orderNotes"
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  placeholder="Contoh: Sambal jangan terlalu pedas"
+                  className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
+
+              {/* Checkout Button */}
+              <Button
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                size="lg"
+                onClick={handleCheckout}
+                disabled={checkoutLoading || items.length === 0}
+              >
+                {checkoutLoading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memproses...</>
+                ) : (
+                  `Bayar ${formatPrice(totalAmount)}`
+                )}
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Bottom Navigation Bar - Visible on All Screen Sizes */}
+      <nav className="sticky bottom-0 z-50 bg-white border-t border-orange-100 shadow-lg" suppressHydrationWarning>
+        <div className="container mx-auto px-2">
+          <div className="flex items-center justify-between py-2">
+            {/* Beranda */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('menu')}
+              className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeTab === 'menu' ? 'text-orange-600 bg-orange-50' : 'text-muted-foreground'}`}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-xs font-medium">Beranda</span>
+            </Button>
+
+            {/* QR Member */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenMemberCard}
+              className="flex flex-col items-center gap-1 h-auto py-2 px-3"
+            >
+              <QrCode className="w-5 h-5" />
+              <span className="text-xs font-medium">QR Member</span>
+            </Button>
+
+            {/* Riwayat Pesanan */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('orders')}
+              className={`flex flex-col items-center gap-1 h-auto py-2 px-3 ${activeTab === 'orders' ? 'text-orange-600 bg-orange-50' : 'text-muted-foreground'}`}
+            >
+              <History className="w-5 h-5" />
+              <span className="text-xs font-medium">Riwayat</span>
+            </Button>
+
+            {/* Profile */}
+            {isAuthenticated ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentView('profile')}
+                className="flex flex-col items-center gap-1 h-auto py-2 px-3"
+              >
+                <User className="w-5 h-5" />
+                <span className="text-xs font-medium">Profile</span>
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentView('login')}
+                className="flex flex-col items-center gap-1 h-auto py-2 px-3"
+              >
+                <LogIn className="w-5 h-5" />
+                <span className="text-xs font-medium">Login</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Member Card Dialog */}
+      <Dialog open={memberCardOpen} onOpenChange={setMemberCardOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IdCard className="w-5 h-5 text-orange-600" />
+              Kartu Member
+            </DialogTitle>
+            <DialogDescription>
+              Scan QR code atau barcode ini untuk mengumpulkan poin
+            </DialogDescription>
+          </DialogHeader>
+
+          {memberCardLoading ? (
+            <div className="py-12 flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-600 border-t-transparent" />
+              <p className="mt-4 text-muted-foreground">Memuat kartu member...</p>
+            </div>
+          ) : memberCardData ? (
+            <div className="space-y-6 py-4">
+              {/* Member Card Design */}
+              <div className="relative overflow-hidden rounded-2xl shadow-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white">
+                {/* Card Pattern Background */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+                </div>
+
+                <div className="relative p-6 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-100 text-sm font-medium">KARTU MEMBER</p>
+                      <h3 className="text-2xl font-bold mt-1">AYAM GEPREK SAMBAL IJO</h3>
+                    </div>
+                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                      <Gift className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  <Separator className="bg-white/20" />
+
+                  {/* Member Info */}
+                  <div className="flex items-center gap-4">
+                    <Avatar className="w-16 h-16 border-3 border-white/50">
+                      <AvatarImage
+                        src={user?.avatar ? `${user.avatar}?t=${Date.now()}` : undefined}
+                        alt={user?.name}
+                      />
+                      <AvatarFallback className="bg-white/30 text-white text-xl font-bold">
+                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-lg font-semibold">{user?.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge
+                          className={
+                            user?.role === 'ADMIN'
+                              ? 'bg-purple-500'
+                              : user?.role === 'CASHIER'
+                              ? 'bg-blue-500'
+                              : 'bg-yellow-500 text-black'
+                          }
+                        >
+                          {user?.role === 'ADMIN' ? 'ADMIN' : user?.role === 'CASHIER' ? 'KASIR' : 'MEMBER'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Points */}
+                  <div className="bg-white/20 rounded-xl p-4 backdrop-blur-sm">
+                    <p className="text-orange-100 text-sm">Poin Tersedia</p>
+                    <p className="text-3xl font-bold mt-1">{(user as any).points || 0} Poin</p>
+                    <p className="text-orange-100 text-xs mt-1">Setiap Rp 10.000 = 1 poin</p>
+                  </div>
+
+                  {/* Barcode */}
+                  <div className="bg-white rounded-xl p-4">
+                    <div className="flex justify-center">
+                      <svg ref={barcodeRef} className="w-full" />
+                    </div>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="flex justify-center">
+                    <div className="bg-white p-3 rounded-xl shadow-lg">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(memberCardData.qrData)}`}
+                        alt="Member QR Code"
+                        className="w-32 h-32"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between text-xs text-orange-100">
+                    <p>Terdaftar: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID') : 'N/A'}</p>
+                    <p>{user?.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={() => {
+                    if (memberCardData?.memberNumber) {
+                      navigator.clipboard.writeText(memberCardData.memberNumber)
+                      toast({
+                        title: 'Berhasil',
+                        description: 'Nomor member disalin ke clipboard',
+                      })
+                    }
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                  Salin No. Member
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={handleOpenMemberCard}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button onClick={() => setMemberCardOpen(false)}>
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+export default function HomePage() {
+  const { currentView } = useUIStore()
+
+  // Render different views based on currentView state
+  switch (currentView) {
+    case 'customer':
+      return <CustomerView />
+    case 'login':
+      return <LoginPage />
+    case 'admin':
+      return <AdminDashboard />
+    case 'pos':
+      return <POSInterface />
+    case 'profile':
+      return <ProfilePage />
+    default:
+      return <CustomerView />
+  }
+}
+// Cache refresh
+
