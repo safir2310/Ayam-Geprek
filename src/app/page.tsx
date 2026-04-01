@@ -1135,21 +1135,30 @@ function CustomerView() {
                         <Badge
                           className={
                             order.status === 'COMPLETED'
-                              ? 'bg-green-500'
+                              ? 'bg-green-100 text-green-700 border-green-200'
                               : order.status === 'PROCESSING'
-                              ? 'bg-orange-500'
-                              : order.status === 'CANCELLED'
-                              ? 'bg-red-500'
-                              : 'bg-gray-500'
+                              ? 'bg-purple-100 text-purple-700 border-purple-200'
+                              : order.status === 'CONFIRMED'
+                              ? 'bg-blue-100 text-blue-700 border-blue-200'
+                              : order.status === 'PENDING'
+                              ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                              : order.status === 'DELIVERED'
+                              ? 'bg-teal-100 text-teal-700 border-teal-200'
+                              : 'bg-red-100 text-red-700 border-red-200'
                           }
+                          variant="outline"
                         >
                           {order.status === 'COMPLETED'
                             ? 'Selesai'
                             : order.status === 'PROCESSING'
                             ? 'Diproses'
-                            : order.status === 'CANCELLED'
-                            ? 'Dibatalkan'
-                            : order.status}
+                            : order.status === 'CONFIRMED'
+                            ? 'Dikonfirmasi'
+                            : order.status === 'PENDING'
+                            ? 'Menunggu'
+                            : order.status === 'DELIVERED'
+                            ? 'Dikirim'
+                            : 'Dibatalkan'}
                         </Badge>
                       </div>
                       
