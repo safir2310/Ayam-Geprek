@@ -1,0 +1,21 @@
+[payment-service] Installing dependencies...
+bun install v1.3.10 (30e609e0)
+FileNotFound: failed copying files from cache to destination for package hono
+
++ @types/node@20.19.37
++ @types/qrcode@1.5.6
++ bun-types@1.3.11
++ typescript@5.9.3
++ @hono/node-server@1.19.11
++ @hono/zod-validator@0.2.2
++ crypto-js@4.2.0
++ qrcode@1.513 | GatewayFactory.initialize();
+14 | 
+15 | // POST /api/payment/qris/create - Create QRIS payment
+16 | app.post(
+17 |   '/api/payment/qris/create',
+18 |   zValidator('json', createPaymentSchema),
+                                             ^
+ReferenceError: Cannot access 'createPaymentSchema' before initialization.
+      at /home/z/my-project/mini-services/payment-service/src/routes.ts:18:41
+      at loadAndEvaluateModule (2:1)

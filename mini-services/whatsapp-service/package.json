@@ -1,0 +1,20 @@
+{
+  "name": "whatsapp-notification-service",
+  "version": "1.0.0",
+  "description": "WhatsApp Notification Service for AYAM GEPREK SAMBAL IJO",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir ./dist --target bun"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "@hono/node-server": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.0"
+  }
+}

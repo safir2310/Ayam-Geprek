@@ -1,0 +1,19 @@
+{
+  "name": "realtime-service",
+  "version": "1.0.0",
+  "description": "WebSocket service for AYAM GEPREK SAMBAL IJO restaurant system",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

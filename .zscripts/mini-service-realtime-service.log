@@ -1,0 +1,19 @@
+[realtime-service] Installing dependencies...
+bun install v1.3.10 (30e609e0)
+
++ @types/node@20.19.37
++ socket.io@4.8.3
++ socket.io-client@4.8.3
+
+21 packages installed [208.00ms]
+[realtime-service] Running bun run dev...
+$ bun --hot index.ts
+46 |     }
+47 |   }
+48 |   let er;
+49 |   if (args.length > 0)
+50 |     er = args[0];
+51 |     throw er;
+                 ^
+error: Failed to start server. Is port 3004 in use?
+      at emitError (node:events:51:13)
