@@ -7,10 +7,10 @@
 
 Platform restoran modern terintegrasi yang menggabungkan order online pelanggan, POS kasir minimarket-style, dashboard admin realtime, stok otomatis, scan barcode produk, sistem point pelanggan, notifikasi WhatsApp, grafik penjualan, dan pembayaran QRIS CPM.
 
-**Status:** ✅ **PRODUCTION READY**  
-**Framework:** Next.js 16.1 (App Router) + TypeScript  
-**Database:** Prisma ORM + SQLite  
-**UI:** Tailwind CSS 4 + shadcn/ui  
+**Status:** ✅ **PRODUCTION READY**
+**Framework:** Next.js 16.1 (App Router) + TypeScript
+**Database:** Prisma ORM + Vercel Postgres (PostgreSQL) / SQLite (local)
+**UI:** Tailwind CSS 4 + shadcn/ui
 **Styling:** Orange theme (brand color)
 
 ---
@@ -279,7 +279,27 @@ Models:
 
 ---
 
-## 🚀 Cara Menjalankan
+## 🚀 Deployment
+
+### Deploy ke Vercel dengan Database (Production)
+
+Untuk panduan lengkap deployment ke Vercel dengan Vercel Postgres database, lihat dokumentasi terperinci:
+
+📖 **[VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)**
+
+**Langkah Singkat:**
+1. Buat Vercel Postgres database di [vercel.com](https://vercel.com)
+2. Connect repository GitHub [Ayam-Geprek](https://github.com/safir2310/Ayam-Geprek)
+3. Setup environment variables:
+   - `DATABASE_URL` (dari Vercel Postgres)
+   - `DIRECT_URL` (dari Vercel Postgres)
+   - `NEXTAUTH_SECRET` (generate dengan `openssl rand -base64 32`)
+   - `NEXTAUTH_URL` (URL production)
+4. Deploy - Prisma akan otomatis generate schema saat build
+
+---
+
+## 🚀 Cara Menjalankan (Local Development)
 
 ### 1. Install Dependencies
 ```bash
@@ -287,14 +307,35 @@ bun install
 ```
 
 ### 2. Setup Database
+**Option A: SQLite (Local Development)**
 ```bash
+bun run db:push
+```
+
+**Option B: PostgreSQL (Untuk Vercel Postgres)**
+```bash
+# Set environment variables dari Vercel
+export DATABASE_URL="postgresql://user:password@host/database?sslmode=require&pgbouncer=true"
+export DIRECT_URL="postgresql://user:password@host/database?sslmode=require"
+
+# Push schema ke database
 bun run db:push
 ```
 
 ### 3. Setup Environment Variables
 Buat file `.env` di root:
+
+**Untuk SQLite (Local):**
 ```env
 DATABASE_URL="file:./db/custom.db"
+JWT_SECRET="your-secret-key-here"
+WS_SERVICE_URL="http://localhost:3004"
+```
+
+**Untuk PostgreSQL (Vercel):**
+```env
+DATABASE_URL="postgresql://user:password@host/database?sslmode=require&pgbouncer=true"
+DIRECT_URL="postgresql://user:password@host/database?sslmode=require"
 JWT_SECRET="your-secret-key-here"
 WS_SERVICE_URL="http://localhost:3004"
 ```
