@@ -10408,3 +10408,18 @@ prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id`
 prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
 prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
  GET /api/categories?includeProductCount=true 200 in 7ms (compile: 1729µs, render: 6ms)
+ GET / 200 in 31ms (compile: 1852µs, render: 29ms)
+prisma:query SELECT 1
+prisma:query SELECT `main`.`Product`.`id`, `main`.`Product`.`name`, `main`.`Product`.`description`, `main`.`Product`.`price`, `main`.`Product`.`barcode`, `main`.`Product`.`sku`, `main`.`Product`.`categoryId`, `main`.`Product`.`image`, `main`.`Product`.`stock`, `main`.`Product`.`minStock`, `main`.`Product`.`cost`, `main`.`Product`.`isActive`, `main`.`Product`.`createdAt`, `main`.`Product`.`updatedAt` FROM `main`.`Product` WHERE `main`.`Product`.`isActive` = ? ORDER BY `main`.`Product`.`name` ASC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`Category`.`id`, `main`.`Category`.`name`, `main`.`Category`.`description`, `main`.`Category`.`icon`, `main`.`Category`.`color`, `main`.`Category`.`order`, `main`.`Category`.`isActive`, `main`.`Category`.`createdAt`, `main`.`Category`.`updatedAt` FROM `main`.`Category` WHERE `main`.`Category`.`id` IN (?,?,?,?,?,?) LIMIT ? OFFSET ?
+ GET /api/products?status=active 200 in 7ms (compile: 1775µs, render: 5ms)
+prisma:query SELECT `main`.`Category`.`id`, `main`.`Category`.`name`, `main`.`Category`.`description`, `main`.`Category`.`icon`, `main`.`Category`.`color`, `main`.`Category`.`order`, `main`.`Category`.`isActive`, `main`.`Category`.`createdAt`, `main`.`Category`.`updatedAt` FROM `main`.`Category` WHERE `main`.`Category`.`isActive` = ? ORDER BY `main`.`Category`.`order` ASC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Product`.`id` FROM `main`.`Product` WHERE (`main`.`Product`.`categoryId` = ? AND `main`.`Product`.`isActive` = ?) LIMIT ? OFFSET ?) AS `sub`
+ GET /api/categories?includeProductCount=true 200 in 8ms (compile: 3ms, render: 6ms)
