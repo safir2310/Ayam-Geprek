@@ -8,19 +8,48 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import { CreditCard, Plus, Pencil, Trash2, CheckCircle, XCircle, QrCode, Wallet, DollarSign } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { CreditCard, Plus, Pencil, Trash2, CheckCircle, XCircle, QrCode, Wallet, DollarSign, Upload, X, Loader2, CreditCard as CardIcon } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+
+// Helper function to convert file to Base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = error => reject(error)
+  })
+}
+
+// Validate file
+const validateImageFile = (file: File): { valid: boolean; error?: string } => {
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  const maxSize = 5 * 1024 * 1024 // 5MB
+
+  if (!validTypes.includes(file.type)) {
+    return { valid: false, error: 'File harus berupa gambar (JPG, PNG, WebP)' }
+  }
+
+  if (file.size > maxSize) {
+    return { valid: false, error: 'Ukuran file maksimal 5MB' }
+  }
+
+  return { valid: true }
+}
 
 type PaymentMethod = {
   id: string
   name: string
-  type: 'CASH' | 'QRIS' | 'E_WALLET' | 'BANK_TRANSFER' | 'CARD'
+  type: 'CASH' | 'QRIS' | 'E_WALLET' | 'BANK_TRANSFER' | 'CARD' | 'TRANSFER'
   isActive: boolean
-  fee?: number
-  minAmount?: number
-  maxAmount?: number
-  icon?: string
-  description?: string
+  qrCode?: string | null
+  logo?: string | null
+  fee: number
+  minAmount: number
+  maxAmount?: number | null
+  description?: string | null
+  order: number
   createdAt: Date
   updatedAt: Date
 }
@@ -31,16 +60,26 @@ export default function PaymentMethods() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     type: 'CASH' as PaymentMethod['type'],
-    fee: 0,
-    minAmount: 0,
-    maxAmount: 0,
-    description: ''
+    fee: '0',
+    minAmount: '0',
+    maxAmount: '',
+    description: '',
+    order: '0',
+    isActive: true,
   })
+
+  // File upload states
+  const [qrCodePreview, setQrCodePreview] = useState<string | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [isUploadingQrCode, setIsUploadingQrCode] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
 
   // Load payment methods
   useEffect(() => {
@@ -48,152 +87,40 @@ export default function PaymentMethods() {
   }, [])
 
   const loadPaymentMethods = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const response = await fetch('/api/payment-methods')
+      const response = await fetch('/api/admin/payment-methods')
       if (!response.ok) throw new Error('Failed to fetch payment methods')
-      
+
       const data = await response.json()
       if (data.success) {
         setPaymentMethods(data.data)
       } else {
-        // Use mock data if API fails
-        setPaymentMethods(getMockPaymentMethods())
+        throw new Error(data.error || 'Failed to load payment methods')
       }
     } catch (error) {
       console.error('Error loading payment methods:', error)
-      // Use mock data
-      setPaymentMethods(getMockPaymentMethods())
+      toast({
+        title: 'Error',
+        description: 'Gagal memuat metode pembayaran',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  const getMockPaymentMethods = (): PaymentMethod[] => [
-    {
-      id: '1',
-      name: 'Tunai',
-      type: 'CASH',
-      isActive: true,
-      icon: 'DollarSign',
-      description: 'Pembayaran dengan uang tunai',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '2',
-      name: 'QRIS',
-      type: 'QRIS',
-      isActive: true,
-      fee: 0,
-      minAmount: 1000,
-      maxAmount: 10000000,
-      icon: 'QrCode',
-      description: 'Scan QRIS untuk pembayaran',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '3',
-      name: 'GoPay',
-      type: 'E_WALLET',
-      isActive: true,
-      fee: 0,
-      minAmount: 1000,
-      maxAmount: 5000000,
-      icon: 'Wallet',
-      description: 'Pembayaran via GoPay',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '4',
-      name: 'OVO',
-      type: 'E_WALLET',
-      isActive: true,
-      fee: 0,
-      minAmount: 1000,
-      maxAmount: 5000000,
-      icon: 'Wallet',
-      description: 'Pembayaran via OVO',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '5',
-      name: 'DANA',
-      type: 'E_WALLET',
-      isActive: true,
-      fee: 0,
-      minAmount: 1000,
-      maxAmount: 5000000,
-      icon: 'Wallet',
-      description: 'Pembayaran via DANA',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '6',
-      name: 'Kartu Debit/Kredit',
-      type: 'CARD',
-      isActive: false,
-      fee: 1500,
-      minAmount: 10000,
-      maxAmount: 20000000,
-      icon: 'CreditCard',
-      description: 'Pembayaran dengan kartu debit/kredit',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '7',
-      name: 'Transfer Bank BCA',
-      type: 'BANK_TRANSFER',
-      isActive: true,
-      fee: 0,
-      minAmount: 10000,
-      maxAmount: 50000000,
-      icon: 'Wallet',
-      description: 'Transfer ke rekening BCA',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '8',
-      name: 'Transfer Bank Mandiri',
-      type: 'BANK_TRANSFER',
-      isActive: true,
-      fee: 0,
-      minAmount: 10000,
-      maxAmount: 50000000,
-      icon: 'Wallet',
-      description: 'Transfer ke rekening Mandiri',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '9',
-      name: 'ShopeePay',
-      type: 'E_WALLET',
-      isActive: false,
-      fee: 0,
-      minAmount: 1000,
-      maxAmount: 5000000,
-      icon: 'Wallet',
-      description: 'Pembayaran via ShopeePay',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  ]
-
-  const getIcon = (iconName?: string) => {
-    switch (iconName) {
-      case 'QrCode':
+  const getIcon = (type: PaymentMethod['type']) => {
+    switch (type) {
+      case 'QRIS':
         return <QrCode className="w-8 h-8" />
-      case 'Wallet':
+      case 'E_WALLET':
+      case 'BANK_TRANSFER':
         return <Wallet className="w-8 h-8" />
-      case 'DollarSign':
+      case 'CASH':
         return <DollarSign className="w-8 h-8" />
+      case 'CARD':
+        return <CardIcon className="w-8 h-8" />
       default:
         return <CreditCard className="w-8 h-8" />
     }
@@ -238,11 +165,15 @@ export default function PaymentMethods() {
     setFormData({
       name: '',
       type: 'CASH',
-      fee: 0,
-      minAmount: 0,
-      maxAmount: 0,
-      description: ''
+      fee: '0',
+      minAmount: '0',
+      maxAmount: '',
+      description: '',
+      order: '0',
+      isActive: true,
     })
+    setQrCodePreview(null)
+    setLogoPreview(null)
     setDialogOpen(true)
   }
 
@@ -251,80 +182,73 @@ export default function PaymentMethods() {
     setFormData({
       name: method.name,
       type: method.type,
-      fee: method.fee || 0,
-      minAmount: method.minAmount || 0,
-      maxAmount: method.maxAmount || 0,
-      description: method.description || ''
+      fee: method.fee.toString(),
+      minAmount: method.minAmount.toString(),
+      maxAmount: method.maxAmount?.toString() || '',
+      description: method.description || '',
+      order: method.order.toString(),
+      isActive: method.isActive,
     })
+    setQrCodePreview(method.qrCode || null)
+    setLogoPreview(method.logo || null)
     setDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus metode pembayaran ini?')) return
 
+    setIsDeleting(true)
     try {
-      const response = await fetch(`/api/payment-methods/${id}`, {
+      const response = await fetch(`/api/admin/payment-methods/${id}`, {
         method: 'DELETE'
       })
 
-      if (response.ok) {
-        setPaymentMethods(paymentMethods.filter(m => m.id !== id))
-        toast({
-          title: 'Berhasil',
-          description: 'Metode pembayaran berhasil dihapus',
-        })
-      } else {
-        // Mock delete
-        setPaymentMethods(paymentMethods.filter(m => m.id !== id))
-        toast({
-          title: 'Berhasil',
-          description: 'Metode pembayaran berhasil dihapus',
-        })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete payment method')
       }
-    } catch (error) {
-      // Mock delete
+
       setPaymentMethods(paymentMethods.filter(m => m.id !== id))
       toast({
         title: 'Berhasil',
         description: 'Metode pembayaran berhasil dihapus',
       })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal menghapus metode pembayaran',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
-      const response = await fetch(`/api/payment-methods/${id}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/admin/payment-methods/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive })
       })
 
-      if (response.ok) {
-        setPaymentMethods(paymentMethods.map(m => 
-          m.id === id ? { ...m, isActive } : m
-        ))
-        toast({
-          title: 'Berhasil',
-          description: `Metode pembayaran ${isActive ? 'diaktifkan' : 'dinonaktifkan'}`,
-        })
-      } else {
-        // Mock toggle
-        setPaymentMethods(paymentMethods.map(m => 
-          m.id === id ? { ...m, isActive } : m
-        ))
-        toast({
-          title: 'Berhasil',
-          description: `Metode pembayaran ${isActive ? 'diaktifkan' : 'dinonaktifkan'}`,
-        })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update payment method')
       }
-    } catch (error) {
-      // Mock toggle
-      setPaymentMethods(paymentMethods.map(m => 
+
+      setPaymentMethods(paymentMethods.map(m =>
         m.id === id ? { ...m, isActive } : m
       ))
       toast({
         title: 'Berhasil',
         description: `Metode pembayaran ${isActive ? 'diaktifkan' : 'dinonaktifkan'}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal mengupdate status',
+        variant: 'destructive'
       })
     }
   }
@@ -332,99 +256,120 @@ export default function PaymentMethods() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!formData.name || !formData.type) {
+      toast({
+        title: 'Error',
+        description: 'Nama dan tipe metode pembayaran wajib diisi',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsSaving(true)
     try {
       const url = editingMethod
-        ? `/api/payment-methods/${editingMethod.id}`
-        : '/api/payment-methods'
+        ? `/api/admin/payment-methods/${editingMethod.id}`
+        : '/api/admin/payment-methods'
 
-      const method = editingMethod ? 'PATCH' : 'POST'
+      const method = editingMethod ? 'PUT' : 'POST'
+
+      const body = {
+        ...formData,
+        fee: parseFloat(formData.fee) || 0,
+        minAmount: parseFloat(formData.minAmount) || 0,
+        maxAmount: formData.maxAmount ? parseFloat(formData.maxAmount) : null,
+        order: parseInt(formData.order) || 0,
+        qrCode: qrCodePreview,
+        logo: logoPreview,
+      }
 
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          icon: formData.type === 'QRIS' ? 'QrCode' : 
-                 formData.type === 'CASH' ? 'DollarSign' : 'Wallet'
-        })
+        body: JSON.stringify(body)
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (editingMethod) {
-          setPaymentMethods(paymentMethods.map(m => 
-            m.id === editingMethod.id ? { ...m, ...data.data, icon: formData.type === 'QRIS' ? 'QrCode' : formData.type === 'CASH' ? 'DollarSign' : 'Wallet' } : m
-          ))
-          toast({
-            title: 'Berhasil',
-            description: 'Metode pembayaran berhasil diperbarui',
-          })
-        } else {
-          setPaymentMethods([...paymentMethods, {
-            id: Date.now().toString(),
-            ...formData,
-            icon: formData.type === 'QRIS' ? 'QrCode' : formData.type === 'CASH' ? 'DollarSign' : 'Wallet',
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }])
-          toast({
-            title: 'Berhasil',
-            description: 'Metode pembayaran berhasil ditambahkan',
-          })
-        }
-        setDialogOpen(false)
-      } else {
-        // Mock save
-        if (editingMethod) {
-          setPaymentMethods(paymentMethods.map(m => 
-            m.id === editingMethod.id ? { ...m, ...formData, icon: formData.type === 'QRIS' ? 'QrCode' : formData.type === 'CASH' ? 'DollarSign' : 'Wallet' } : m
-          ))
-          toast({
-            title: 'Berhasil',
-            description: 'Metode pembayaran berhasil diperbarui',
-          })
-        } else {
-          setPaymentMethods([...paymentMethods, {
-            id: Date.now().toString(),
-            ...formData,
-            icon: formData.type === 'QRIS' ? 'QrCode' : formData.type === 'CASH' ? 'DollarSign' : 'Wallet',
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }])
-          toast({
-            title: 'Berhasil',
-            description: 'Metode pembayaran berhasil ditambahkan',
-          })
-        }
-        setDialogOpen(false)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save payment method')
       }
-    } catch (error) {
-      // Mock save
-      if (editingMethod) {
-        setPaymentMethods(paymentMethods.map(m => 
-          m.id === editingMethod.id ? { ...m, ...formData, icon: formData.type === 'QRIS' ? 'QrCode' : formData.type === 'CASH' ? 'DollarSign' : 'Wallet' } : m
-        ))
-        toast({
-          title: 'Berhasil',
-          description: 'Metode pembayaran berhasil diperbarui',
-        })
-      } else {
-        setPaymentMethods([...paymentMethods, {
-          id: Date.now().toString(),
-          ...formData,
-          icon: formData.type === 'QRIS' ? 'QrCode' : formData.type === 'CASH' ? 'DollarSign' : 'Wallet',
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }])
-        toast({
-          title: 'Berhasil',
-          description: 'Metode pembayaran berhasil ditambahkan',
-        })
-      }
+
+      const data = await response.json()
+      toast({
+        title: 'Berhasil',
+        description: editingMethod
+          ? 'Metode pembayaran berhasil diperbarui'
+          : 'Metode pembayaran berhasil ditambahkan',
+      })
+
       setDialogOpen(false)
+      loadPaymentMethods()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal menyimpan metode pembayaran',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleQrCodeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const validation = validateImageFile(file)
+    if (!validation.valid) {
+      toast({
+        title: 'Error',
+        description: validation.error,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsUploadingQrCode(true)
+    try {
+      const base64 = await fileToBase64(file)
+      setQrCodePreview(base64)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal memproses gambar QR Code',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUploadingQrCode(false)
+    }
+  }
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const validation = validateImageFile(file)
+    if (!validation.valid) {
+      toast({
+        title: 'Error',
+        description: validation.error,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsUploadingLogo(true)
+    try {
+      const base64 = await fileToBase64(file)
+      setLogoPreview(base64)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal memproses logo',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUploadingLogo(false)
     }
   }
 
@@ -461,7 +406,7 @@ export default function PaymentMethods() {
               Tambah Metode
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingMethod ? 'Edit Metode Pembayaran' : 'Tambah Metode Pembayaran'}
@@ -505,8 +450,9 @@ export default function PaymentMethods() {
                       id="fee"
                       type="number"
                       min="0"
+                      step="1000"
                       value={formData.fee}
-                      onChange={(e) => setFormData({ ...formData, fee: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
                       placeholder="0"
                     />
                   </div>
@@ -516,8 +462,9 @@ export default function PaymentMethods() {
                       id="minAmount"
                       type="number"
                       min="0"
+                      step="1000"
                       value={formData.minAmount}
-                      onChange={(e) => setFormData({ ...formData, minAmount: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, minAmount: e.target.value })}
                       placeholder="0"
                     />
                   </div>
@@ -528,27 +475,155 @@ export default function PaymentMethods() {
                     id="maxAmount"
                     type="number"
                     min="0"
+                    step="1000"
                     value={formData.maxAmount}
-                    onChange={(e) => setFormData({ ...formData, maxAmount: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })}
+                    placeholder="Kosongkan untuk tanpa batas"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="order">Urutan Tampilan</Label>
+                  <Input
+                    id="order"
+                    type="number"
+                    min="0"
+                    value={formData.order}
+                    onChange={(e) => setFormData({ ...formData, order: e.target.value })}
                     placeholder="0"
                   />
                 </div>
                 <div>
                   <Label htmlFor="description">Deskripsi</Label>
-                  <textarea
+                  <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Deskripsi singkat metode pembayaran"
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-h-[80px]"
                   />
+                </div>
+
+                {/* QR Code Upload */}
+                {formData.type === 'QRIS' && (
+                  <div>
+                    <Label>QR Code</Label>
+                    <div className="mt-2">
+                      {qrCodePreview ? (
+                        <div className="relative w-full h-48 border rounded-lg overflow-hidden">
+                          <img
+                            src={qrCodePreview}
+                            alt="QR Code Preview"
+                            className="w-full h-full object-contain"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => setQrCodePreview(null)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed rounded-lg p-6">
+                          <input
+                            id="qrcode-upload"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            onChange={handleQrCodeUpload}
+                            disabled={isUploadingQrCode}
+                            className="hidden"
+                          />
+                          <Label
+                            htmlFor="qrcode-upload"
+                            className="flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            {isUploadingQrCode ? (
+                              <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-2" />
+                            ) : (
+                              <QrCode className="w-8 h-8 text-orange-500 mb-2" />
+                            )}
+                            <p className="text-sm text-muted-foreground text-center">
+                              {isUploadingQrCode ? 'Mengupload...' : 'Klik untuk upload QR Code'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP (maks. 5MB)</p>
+                          </Label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Logo Upload */}
+                <div>
+                  <Label>Logo</Label>
+                  <div className="mt-2">
+                    {logoPreview ? (
+                      <div className="relative w-full h-32 border rounded-lg overflow-hidden bg-white">
+                        <img
+                          src={logoPreview}
+                          alt="Logo Preview"
+                          className="w-full h-full object-contain"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => setLogoPreview(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed rounded-lg p-6">
+                        <input
+                          id="logo-upload"
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          onChange={handleLogoUpload}
+                          disabled={isUploadingLogo}
+                          className="hidden"
+                        />
+                        <Label
+                          htmlFor="logo-upload"
+                          className="flex flex-col items-center justify-center cursor-pointer"
+                        >
+                          {isUploadingLogo ? (
+                            <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-2" />
+                          ) : (
+                            <Upload className="w-8 h-8 text-orange-500 mb-2" />
+                          )}
+                          <p className="text-sm text-muted-foreground text-center">
+                            {isUploadingLogo ? 'Mengupload...' : 'Klik untuk upload logo'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP (maks. 5MB)</p>
+                        </Label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="isActive" className="cursor-pointer">
+                    Aktif
+                  </Label>
                 </div>
               </div>
               <DialogFooter className="mt-6">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Batal
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   {editingMethod ? 'Simpan Perubahan' : 'Tambah Metode'}
                 </Button>
               </DialogFooter>
@@ -567,11 +642,11 @@ export default function PaymentMethods() {
         />
       </div>
 
-      {/* Payment Methods List - Scrollable */}
+      {/* Payment Methods List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <Loader2 className="w-8 h-8 animate-spin text-orange-600 mx-auto" />
             <p className="mt-2 text-muted-foreground">Memuat metode pembayaran...</p>
           </div>
         </div>
@@ -588,9 +663,19 @@ export default function PaymentMethods() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg bg-gradient-to-br ${getTypeColor(method.type)} text-white`}>
-                        {getIcon(method.icon)}
-                      </div>
+                      {method.logo ? (
+                        <div className="w-12 h-12 rounded-lg bg-white border flex items-center justify-center overflow-hidden">
+                          <img
+                            src={method.logo}
+                            alt={method.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${getTypeColor(method.type)} text-white`}>
+                          {getIcon(method.type)}
+                        </div>
+                      )}
                       <div>
                         <CardTitle className="text-lg">{method.name}</CardTitle>
                         <CardDescription className="text-xs">
@@ -610,7 +695,17 @@ export default function PaymentMethods() {
                       {method.description}
                     </p>
                   )}
-                  
+
+                  {method.qrCode && (
+                    <div className="flex justify-center py-2">
+                      <img
+                        src={method.qrCode}
+                        alt="QR Code"
+                        className="w-32 h-32 object-contain border rounded"
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Biaya Admin:</span>
@@ -624,7 +719,7 @@ export default function PaymentMethods() {
                         <span className="font-medium">{formatCurrency(method.minAmount)}</span>
                       </div>
                     )}
-                    {method.maxAmount > 0 && (
+                    {method.maxAmount && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Max. Transaksi:</span>
                         <span className="font-medium">{formatCurrency(method.maxAmount)}</span>
@@ -647,8 +742,9 @@ export default function PaymentMethods() {
                       variant="outline"
                       className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => handleDelete(method.id)}
+                      disabled={isDeleting}
                     >
-                      <Trash2 className="w-3 h-3 mr-1" />
+                      {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />}
                       Hapus
                     </Button>
                   </div>

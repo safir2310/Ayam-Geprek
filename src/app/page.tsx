@@ -242,6 +242,30 @@ async function fetchCustomerOrders(phone: string): Promise<Order[]> {
   }
 }
 
+async function fetchPaymentMethods(): Promise<any[]> {
+  try {
+    const response = await fetch('/api/payment-methods')
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to fetch payment methods')
+      }
+      throw new Error(`Server error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      return data.data || []
+    }
+    throw new Error(data.error || 'Failed to fetch payment methods')
+  } catch (error) {
+    console.error('Error fetching payment methods:', error)
+    throw error
+  }
+}
+
 // Default fallback categories
 const DEFAULT_CATEGORIES = [
   { id: 'all', name: 'Semua', icon: '🍽️', isActive: true, order: 0 },
@@ -276,6 +300,7 @@ function CustomerView() {
   // Data states
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES)
   const [products, setProducts] = useState<Product[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -387,9 +412,14 @@ function CustomerView() {
       setLoading(true)
       setError(null)
       try {
-        const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts()])
+        const [cats, prods, pms] = await Promise.all([fetchCategories(), fetchProducts(), fetchPaymentMethods()])
         setCategories([...DEFAULT_CATEGORIES, ...cats])
         setProducts(prods)
+        setPaymentMethods(pms)
+        // Set default payment method to first active method or fallback to CASH
+        if (pms.length > 0) {
+          setPaymentMethod(pms[0].type)
+        }
       } catch (err) {
         setError('Gagal memuat data. Silakan coba lagi.')
         toast({
@@ -1827,34 +1857,38 @@ function CustomerView() {
                 </div>
                 <h3 className="font-semibold">Metode Pembayaran</h3>
               </div>
-              <div className="grid grid-cols-2 gap-3 pl-10">
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'CASH' ? 'default' : 'outline'}
-                  onClick={() => setPaymentMethod('CASH')}
-                  className={
-                    paymentMethod === 'CASH'
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
-                      : 'border-orange-200 hover:bg-orange-50'
-                  }
-                >
-                  <Receipt className="w-4 h-4 mr-2" />
-                  Tunai
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'QRIS' ? 'default' : 'outline'}
-                  onClick={() => setPaymentMethod('QRIS')}
-                  className={
-                    paymentMethod === 'QRIS'
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
-                      : 'border-orange-200 hover:bg-orange-50'
-                  }
-                >
-                  <QrCode className="w-4 h-4 mr-2" />
-                  QRIS
-                </Button>
-              </div>
+              {paymentMethods.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 pl-10">
+                  {paymentMethods.map((pm) => (
+                    <Button
+                      key={pm.id}
+                      type="button"
+                      variant={paymentMethod === pm.type ? 'default' : 'outline'}
+                      onClick={() => setPaymentMethod(pm.type)}
+                      className={
+                        paymentMethod === pm.type
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                          : 'border-orange-200 hover:bg-orange-50'
+                      }
+                    >
+                      {pm.logo ? (
+                        <img src={pm.logo} alt={pm.name} className="w-4 h-4 mr-2 object-contain" />
+                      ) : pm.type === 'CASH' ? (
+                        <Receipt className="w-4 h-4 mr-2" />
+                      ) : pm.type === 'QRIS' ? (
+                        <QrCode className="w-4 h-4 mr-2" />
+                      ) : (
+                        <CreditCard className="w-4 h-4 mr-2" />
+                      )}
+                      {pm.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-sm text-muted-foreground pl-10 py-4">
+                  Tidak ada metode pembayaran tersedia
+                </div>
+              )}
             </div>
 
             <Separator />

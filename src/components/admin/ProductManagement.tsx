@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search,
   Plus,
@@ -20,6 +20,9 @@ import {
   MoreHorizontal,
   Power,
   PowerOff,
+  Upload,
+  X,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -81,147 +84,35 @@ interface Product {
   createdAt: string
 }
 
-// Categories
-const CATEGORIES = [
-  { id: 'CAT-001', name: 'Makanan' },
-  { id: 'CAT-002', name: 'Minuman' },
-  { id: 'CAT-003', name: 'Paket Hemat' },
-]
+// Helper function to convert file to Base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = error => reject(error)
+  })
+}
 
-// Mock Data
-const MOCK_PRODUCTS: Product[] = [
-  {
-    id: 'PRD-001',
-    name: 'Ayam Geprek Sambal Ijo',
-    description: 'Ayam goreng crispy dengan sambal ijo pedas',
-    price: 25000,
-    cost: 15000,
-    barcode: '8991001001001',
-    sku: 'AGP-SI-001',
-    categoryId: 'CAT-001',
-    categoryName: 'Makanan',
-    image: '/api/placeholder/80/80',
-    stock: 45,
-    minStock: 10,
-    isActive: true,
-    createdAt: '2024-01-15',
-  },
-  {
-    id: 'PRD-002',
-    name: 'Ayam Geprek Sambal Merah',
-    description: 'Ayam goreng crispy dengan sambal merah',
-    price: 25000,
-    cost: 15000,
-    barcode: '8991001001002',
-    sku: 'AGP-SM-001',
-    categoryId: 'CAT-001',
-    categoryName: 'Makanan',
-    image: '/api/placeholder/80/80',
-    stock: 32,
-    minStock: 10,
-    isActive: true,
-    createdAt: '2024-01-15',
-  },
-  {
-    id: 'PRD-003',
-    name: 'Es Teh Manis',
-    description: 'Teh manis dingin segar',
-    price: 5000,
-    cost: 1000,
-    barcode: '8991002001001',
-    sku: 'ETM-001',
-    categoryId: 'CAT-002',
-    categoryName: 'Minuman',
-    image: '/api/placeholder/80/80',
-    stock: 8,
-    minStock: 15,
-    isActive: true,
-    createdAt: '2024-01-15',
-  },
-  {
-    id: 'PRD-004',
-    name: 'Es Jeruk Peras',
-    description: 'Jus jeruk segar dengan es',
-    price: 8000,
-    cost: 2000,
-    barcode: '8991002001002',
-    sku: 'EJP-001',
-    categoryId: 'CAT-002',
-    categoryName: 'Minuman',
-    image: '/api/placeholder/80/80',
-    stock: 25,
-    minStock: 10,
-    isActive: true,
-    createdAt: '2024-01-20',
-  },
-  {
-    id: 'PRD-005',
-    name: 'Paket Hemat 1',
-    description: 'Ayam Geprek + Es Teh + Nasi',
-    price: 30000,
-    cost: 18000,
-    barcode: '8991003001001',
-    sku: 'PH-001',
-    categoryId: 'CAT-003',
-    categoryName: 'Paket Hemat',
-    image: '/api/placeholder/80/80',
-    stock: 5,
-    minStock: 5,
-    isActive: true,
-    createdAt: '2024-02-01',
-  },
-  {
-    id: 'PRD-006',
-    name: 'Nasi Geprek Telur',
-    description: 'Nasi dengan geprek telur mata sapi',
-    price: 20000,
-    cost: 12000,
-    barcode: '8991001001003',
-    sku: 'NGT-001',
-    categoryId: 'CAT-001',
-    categoryName: 'Makanan',
-    image: '/api/placeholder/80/80',
-    stock: 15,
-    minStock: 10,
-    isActive: true,
-    createdAt: '2024-02-10',
-  },
-  {
-    id: 'PRD-007',
-    name: 'Kopi Hitam',
-    description: 'Kopi hitam panas',
-    price: 8000,
-    cost: 2000,
-    barcode: '8991002001003',
-    sku: 'KH-001',
-    categoryId: 'CAT-002',
-    categoryName: 'Minuman',
-    image: '/api/placeholder/80/80',
-    stock: 50,
-    minStock: 10,
-    isActive: false,
-    createdAt: '2024-02-15',
-  },
-  {
-    id: 'PRD-008',
-    name: 'Paket Hemat 2',
-    description: 'Ayam Geprek + Es Jeruk + Nasi',
-    price: 32000,
-    cost: 20000,
-    barcode: '8991003001002',
-    sku: 'PH-002',
-    categoryId: 'CAT-003',
-    categoryName: 'Paket Hemat',
-    image: '/api/placeholder/80/80',
-    stock: 12,
-    minStock: 5,
-    isActive: true,
-    createdAt: '2024-02-20',
-  },
-]
+// Validate file
+const validateImageFile = (file: File): { valid: boolean; error?: string } => {
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  const maxSize = 5 * 1024 * 1024 // 5MB
+
+  if (!validTypes.includes(file.type)) {
+    return { valid: false, error: 'File harus berupa gambar (JPG, PNG, WebP)' }
+  }
+
+  if (file.size > maxSize) {
+    return { valid: false, error: 'Ukuran file maksimal 5MB' }
+  }
+
+  return { valid: true }
+}
 
 export default function ProductManagement() {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS)
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -230,6 +121,15 @@ export default function ProductManagement() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+
+  // Loading states
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Image upload states
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   // Form states
   const [formData, setFormData] = useState({
@@ -245,6 +145,49 @@ export default function ProductManagement() {
     minStock: '',
     isActive: true,
   })
+
+  // Load data on mount
+  useEffect(() => {
+    loadProducts()
+    loadCategories()
+  }, [])
+
+  const loadProducts = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/products?includeInactive=true')
+      if (!response.ok) throw new Error('Failed to fetch products')
+      const data = await response.json()
+      if (data.success) {
+        setProducts(data.data.map((p: any) => ({
+          ...p,
+          categoryName: p.category?.name || 'Unknown'
+        })))
+      }
+    } catch (error) {
+      console.error('Error loading products:', error)
+      toast({
+        title: 'Error',
+        description: 'Gagal memuat produk',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (!response.ok) throw new Error('Failed to fetch categories')
+      const data = await response.json()
+      if (data.success) {
+        setCategories(data.data)
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -302,7 +245,7 @@ export default function ProductManagement() {
     }
   }
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!formData.name || !formData.price || !formData.categoryId) {
       toast({
         title: 'Error',
@@ -312,36 +255,52 @@ export default function ProductManagement() {
       return
     }
 
-    const category = CATEGORIES.find((c) => c.id === formData.categoryId)
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description || undefined,
+          price: parseFloat(formData.price),
+          cost: formData.cost ? parseFloat(formData.cost) : undefined,
+          barcode: formData.barcode || undefined,
+          sku: formData.sku || undefined,
+          categoryId: formData.categoryId,
+          image: formData.image || undefined,
+          stock: formData.stock ? parseInt(formData.stock) : 0,
+          minStock: formData.minStock ? parseInt(formData.minStock) : 10,
+          isActive: formData.isActive,
+        }),
+      })
 
-    const newProduct: Product = {
-      id: `PRD-${String(products.length + 1).padStart(3, '0')}`,
-      name: formData.name,
-      description: formData.description || undefined,
-      price: parseFloat(formData.price),
-      cost: formData.cost ? parseFloat(formData.cost) : undefined,
-      barcode: formData.barcode || undefined,
-      sku: formData.sku || undefined,
-      categoryId: formData.categoryId,
-      categoryName: category?.name || 'Unknown',
-      image: formData.image || undefined,
-      stock: formData.stock ? parseInt(formData.stock) : 0,
-      minStock: formData.minStock ? parseInt(formData.minStock) : 10,
-      isActive: formData.isActive,
-      createdAt: new Date().toISOString().split('T')[0],
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create product')
+      }
+
+      const data = await response.json()
+      toast({
+        title: 'Berhasil',
+        description: `Produk ${data.data.name} berhasil ditambahkan`,
+      })
+
+      setAddModalOpen(false)
+      resetForm()
+      loadProducts()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal menambahkan produk',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
     }
-
-    setProducts([...products, newProduct])
-    setAddModalOpen(false)
-    resetForm()
-
-    toast({
-      title: 'Berhasil',
-      description: `Produk ${newProduct.name} berhasil ditambahkan`,
-    })
   }
 
-  const handleEditProduct = () => {
+  const handleEditProduct = async () => {
     if (!selectedProduct) return
 
     if (!formData.name || !formData.price || !formData.categoryId) {
@@ -353,52 +312,84 @@ export default function ProductManagement() {
       return
     }
 
-    const category = CATEGORIES.find((c) => c.id === formData.categoryId)
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/products/${selectedProduct.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description || undefined,
+          price: parseFloat(formData.price),
+          cost: formData.cost ? parseFloat(formData.cost) : undefined,
+          barcode: formData.barcode || undefined,
+          sku: formData.sku || undefined,
+          categoryId: formData.categoryId,
+          image: formData.image || undefined,
+          stock: formData.stock ? parseInt(formData.stock) : 0,
+          minStock: formData.minStock ? parseInt(formData.minStock) : 10,
+          isActive: formData.isActive,
+        }),
+      })
 
-    const updatedProducts = products.map((product) =>
-      product.id === selectedProduct.id
-        ? {
-            ...product,
-            name: formData.name,
-            description: formData.description || undefined,
-            price: parseFloat(formData.price),
-            cost: formData.cost ? parseFloat(formData.cost) : undefined,
-            barcode: formData.barcode || undefined,
-            sku: formData.sku || undefined,
-            categoryId: formData.categoryId,
-            categoryName: category?.name || 'Unknown',
-            image: formData.image || undefined,
-            stock: formData.stock ? parseInt(formData.stock) : 0,
-            minStock: formData.minStock ? parseInt(formData.minStock) : 10,
-            isActive: formData.isActive,
-          }
-        : product
-    )
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update product')
+      }
 
-    setProducts(updatedProducts)
-    setEditModalOpen(false)
-    resetForm()
-    setSelectedProduct(null)
+      const data = await response.json()
+      toast({
+        title: 'Berhasil',
+        description: 'Data produk berhasil diperbarui',
+      })
 
-    toast({
-      title: 'Berhasil',
-      description: 'Data produk berhasil diperbarui',
-    })
+      setEditModalOpen(false)
+      resetForm()
+      setSelectedProduct(null)
+      loadProducts()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal memperbarui produk',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleDeleteProduct = () => {
+  const handleDeleteProduct = async () => {
     if (!selectedProduct) return
 
-    const updatedProducts = products.filter((product) => product.id !== selectedProduct.id)
-    setProducts(updatedProducts)
-    setDeleteDialogOpen(false)
-    setSelectedProduct(null)
-    setSelectedIds([])
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/products/${selectedProduct.id}`, {
+        method: 'DELETE',
+      })
 
-    toast({
-      title: 'Berhasil',
-      description: 'Produk berhasil dihapus',
-    })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete product')
+      }
+
+      toast({
+        title: 'Berhasil',
+        description: 'Produk berhasil dihapus',
+      })
+
+      setDeleteDialogOpen(false)
+      setSelectedProduct(null)
+      setSelectedIds([])
+      loadProducts()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal menghapus produk',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleBulkActivate = () => {
@@ -450,6 +441,7 @@ export default function ProductManagement() {
       minStock: product.minStock.toString(),
       isActive: product.isActive,
     })
+    setImagePreview(product.image || null)
     setEditModalOpen(true)
   }
 
@@ -472,6 +464,42 @@ export default function ProductManagement() {
       minStock: '',
       isActive: true,
     })
+    setImagePreview(null)
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const validation = validateImageFile(file)
+    if (!validation.valid) {
+      toast({
+        title: 'Error',
+        description: validation.error,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsUploadingImage(true)
+    try {
+      const base64 = await fileToBase64(file)
+      setFormData({ ...formData, image: base64 })
+      setImagePreview(base64)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal memproses gambar',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setFormData({ ...formData, image: '' })
+    setImagePreview(null)
   }
 
   return (
@@ -560,7 +588,8 @@ export default function ProductManagement() {
                       <SelectValue placeholder="Pilih kategori" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((category) => (
+                      <SelectItem value="">Pilih kategori</SelectItem>
+                      {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
                         </SelectItem>
@@ -607,13 +636,56 @@ export default function ProductManagement() {
                   />
                 </div>
                 <div className="col-span-2 space-y-2">
-                  <Label htmlFor="add-image">URL Gambar</Label>
-                  <Input
-                    id="add-image"
-                    placeholder="https://example.com/image.jpg"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  />
+                  <Label htmlFor="add-image">Gambar Produk</Label>
+                  <div className="space-y-2">
+                    {imagePreview ? (
+                      <div className="relative w-full h-48 border rounded-lg overflow-hidden">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="w-full h-full object-contain"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={handleRemoveImage}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed rounded-lg p-6">
+                        <input
+                          id="add-image"
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          onChange={handleImageUpload}
+                          disabled={isUploadingImage}
+                          className="hidden"
+                        />
+                        <Label
+                          htmlFor="add-image"
+                          className="flex flex-col items-center justify-center cursor-pointer"
+                        >
+                          {isUploadingImage ? (
+                            <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-2" />
+                          ) : (
+                            <Upload className="w-8 h-8 text-orange-500 mb-2" />
+                          )}
+                          <p className="text-sm text-muted-foreground text-center">
+                            {isUploadingImage
+                              ? 'Mengupload gambar...'
+                              : 'Klik untuk upload gambar'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            JPG, PNG, WebP (maks. 5MB)
+                          </p>
+                        </Label>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-2 flex items-center space-x-2">
                   <Checkbox
@@ -633,7 +705,9 @@ export default function ProductManagement() {
                 <Button
                   className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600"
                   onClick={handleAddProduct}
+                  disabled={isSaving}
                 >
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Simpan
                 </Button>
               </DialogFooter>
@@ -730,7 +804,7 @@ export default function ProductManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Kategori</SelectItem>
-                  {CATEGORIES.map((category) => (
+                  {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
                     </SelectItem>
@@ -785,6 +859,7 @@ export default function ProductManagement() {
                       size="sm"
                       variant="outline"
                       className="border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={handleBulkDelete}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Hapus
@@ -816,6 +891,14 @@ export default function ProductManagement() {
       )}
 
       {/* Products Table */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-orange-600 mx-auto" />
+            <p className="mt-2 text-muted-foreground">Memuat produk...</p>
+          </div>
+        </div>
+      ) : (
       <Card className="border-orange-100">
         <div className="overflow-x-auto">
           <Table>
@@ -947,7 +1030,9 @@ export default function ProductManagement() {
                             <AlertDialogAction
                               onClick={handleDeleteProduct}
                               className="bg-red-600 hover:bg-red-700"
+                              disabled={isDeleting}
                             >
+                              {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                               Hapus
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -961,9 +1046,10 @@ export default function ProductManagement() {
           </Table>
         </div>
       </Card>
+      )}
 
       {/* Empty State */}
-      {filteredProducts.length === 0 && (
+      {!isLoading && filteredProducts.length === 0 && (
         <Card className="border-orange-100">
           <CardContent className="py-12 text-center">
             <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1046,7 +1132,8 @@ export default function ProductManagement() {
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((category) => (
+                  <SelectItem value="">Pilih kategori</SelectItem>
+                  {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
                     </SelectItem>
@@ -1093,13 +1180,56 @@ export default function ProductManagement() {
               />
             </div>
             <div className="col-span-2 space-y-2">
-              <Label htmlFor="edit-image">URL Gambar</Label>
-              <Input
-                id="edit-image"
-                placeholder="https://example.com/image.jpg"
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              />
+              <Label htmlFor="edit-image">Gambar Produk</Label>
+              <div className="space-y-2">
+                {imagePreview ? (
+                  <div className="relative w-full h-48 border rounded-lg overflow-hidden">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-contain"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed rounded-lg p-6">
+                    <input
+                      id="edit-image"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={handleImageUpload}
+                      disabled={isUploadingImage}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="edit-image"
+                      className="flex flex-col items-center justify-center cursor-pointer"
+                    >
+                      {isUploadingImage ? (
+                        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-2" />
+                      ) : (
+                        <Upload className="w-8 h-8 text-orange-500 mb-2" />
+                      )}
+                      <p className="text-sm text-muted-foreground text-center">
+                        {isUploadingImage
+                          ? 'Mengupload gambar...'
+                          : 'Klik untuk upload gambar'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        JPG, PNG, WebP (maks. 5MB)
+                      </p>
+                    </Label>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="col-span-2 flex items-center space-x-2">
               <Checkbox
@@ -1119,8 +1249,10 @@ export default function ProductManagement() {
             <Button
               className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600"
               onClick={handleEditProduct}
+              disabled={isSaving}
             >
-              Simpan Perubahan
+              {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Simpan
             </Button>
           </DialogFooter>
         </DialogContent>
